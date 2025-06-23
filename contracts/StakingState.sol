@@ -2,16 +2,14 @@
 pragma solidity ^0.8.29;
 
 import "./interfaces/IStakingManager.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-abstract contract StakingState is IStakingManager {
+abstract contract StakingState is IStakingManager, ERC20 {
     // The vault where assets are staked
     IERC4626 public immutable stakingVault;
 
     // The token that is being staked
     IERC20 public immutable token;
-
-    // Mapping of user addresses to their shares in the vault
-    mapping(address => uint256) public userShares;
 
     /**
      * @dev Returns the total assets staked by a user.
@@ -19,7 +17,7 @@ abstract contract StakingState is IStakingManager {
      * @return The total assets staked by the user.
      */
     function totalUserAssets(address user) external view returns (uint256) {
-        return stakingVault.previewRedeem(userShares[user]);
+        return stakingVault.previewRedeem(balanceOf(user));
     }
 
     /**

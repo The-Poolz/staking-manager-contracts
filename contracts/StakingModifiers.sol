@@ -8,13 +8,4 @@ abstract contract StakingModifiers is StakingState {
         if (amount == 0) revert AmountMustBeGreaterThanZero();
         _;
     }
-
-    modifier hasEnoughShares(
-        mapping(address => uint256) storage userShares,
-        address user,
-        uint256 shares
-    ) {
-        if (shares > userShares[user]) revert InsufficientShares();
-        _;
-    }
 }
