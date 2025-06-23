@@ -8,15 +8,15 @@ import "./StakingModifiers.sol";
 contract StakingManager is Ownable, StakingModifiers {
     using SafeERC20 for IERC20;
     /**
-     * @dev Initializes the contract with the stacking vault address.
-     * @param _stackingVault The address of the IERC4626 vault where assets will be staked.
+     * @dev Initializes the contract with the staking vault address.
+     * @param _stakingVault The address of the IERC4626 vault where assets will be staked.
      */
-    constructor(IERC4626 _stackingVault) Ownable(_msgSender()) {
-        if (address(_stackingVault) == address(0)) revert ZeroAddress();
+    constructor(IERC4626 _stakingVault) Ownable(_msgSender()) {
+        if (address(_stakingVault) == address(0)) revert ZeroAddress();
 
-        stackingVault = _stackingVault;
-        token = IERC20(_stackingVault.asset());
-        emit StakingVaultSet(_stackingVault, token);
+        stakingVault = _stakingVault;
+        token = IERC20(_stakingVault.asset());
+        emit StakingVaultSet(_stakingVault, token);
     }
 
     /**
@@ -26,11 +26,11 @@ contract StakingManager is Ownable, StakingModifiers {
     function stake(uint256 assets) external amountGreaterThanZero(assets) {
         token.safeTransferFrom(msg.sender, address(this), assets);
         // Approve the vault to spend the assets
-        token.forceApprove(address(stackingVault), assets);
+        token.forceApprove(address(stakingVault), assets);
         // Deposit into vault as this contract
-        uint256 shares = stackingVault.deposit(assets, address(this));
+        uint256 shares = stakingVault.deposit(assets, address(this));
         // Zero out the approval to prevent re-entrancy
-        token.forceApprove(address(stackingVault), 0);
+        token.forceApprove(address(stakingVault), 0);
 
         userShares[msg.sender] += shares;
 
@@ -51,7 +51,7 @@ contract StakingManager is Ownable, StakingModifiers {
         userShares[msg.sender] -= shares;
 
         // Withdraw from vault to this contract
-        uint256 assets = stackingVault.redeem(
+        uint256 assets = stakingVault.redeem(
             shares,
             address(this),
             address(this)
