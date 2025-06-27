@@ -50,6 +50,97 @@ describe("StakingManager", function () {
         })
     })
 
-    describe("Deposits", function () {})
-    describe("Withdrawals", function () {})
+    describe("Deposits", function () {
+        let token: any
+        let vault: MockMorphoVault
+        let stakingManager: StakingManager
+        let owner: any
+        let user: any
+
+        const amount = ethers.parseUnits("100", 18)
+
+        beforeEach(async function () {
+            ;[owner, user] = await hre.ethers.getSigners()
+            const Token = await hre.ethers.getContractFactory("ERC20Token")
+            token = await Token.deploy("Test Token", "TTK")
+            const Vault = await hre.ethers.getContractFactory("MockMorphoVault")
+            vault = await Vault.deploy(await token.getAddress())
+            const StakingManager = await hre.ethers.getContractFactory("StakingManager")
+            stakingManager = await StakingManager.deploy(await vault.getAddress(), name, symbol)
+
+            // fund user and approve staking
+            await token.transfer(user.address, amount)
+            await token.connect(user).approve(await stakingManager.getAddress(), amount)
+        })
+
+        it("should stake tokens and mint shares", async function () {
+            await expect(stakingManager.connect(user).stake(amount))
+                .to.emit(stakingManager, "Stake")
+                .withArgs(user.address, amount, amount)
+
+            expect(await stakingManager.balanceOf(user.address)).to.equal(amount)
+            expect(await vault.balanceOf(await stakingManager.getAddress())).to.equal(amount)
+        })
+
+        it("should revert when staking zero tokens", async function () {
+            await expect(stakingManager.connect(user).stake(0)).to.be.revertedWithCustomError(
+                stakingManager,
+                "AmountMustBeGreaterThanZero"
+            )
+        })
+
+        it("should update total user and contract assets", async function () {
+            await stakingManager.connect(user).stake(amount)
+
+            expect(await stakingManager.totalUserAssets(user.address)).to.equal(amount)
+            expect(await stakingManager.totalAssets()).to.equal(amount)
+        })
+    })
+
+    describe("Withdrawals", function () {
+        let token: any
+        let vault: MockMorphoVault
+        let stakingManager: StakingManager
+        let owner: any
+        let user: any
+
+        const amount = ethers.parseUnits("50", 18)
+
+        beforeEach(async function () {
+            ;[owner, user] = await hre.ethers.getSigners()
+            const Token = await hre.ethers.getContractFactory("ERC20Token")
+            token = await Token.deploy("Test Token", "TTK")
+            const Vault = await hre.ethers.getContractFactory("MockMorphoVault")
+            vault = await Vault.deploy(await token.getAddress())
+            const StakingManager = await hre.ethers.getContractFactory("StakingManager")
+            stakingManager = await StakingManager.deploy(await vault.getAddress(), name, symbol)
+
+            // fund user and stake some tokens
+            await token.transfer(user.address, amount)
+            await token.connect(user).approve(await stakingManager.getAddress(), amount)
+            await stakingManager.connect(user).stake(amount)
+        })
+
+        it("should unstake tokens and burn shares", async function () {
+            await expect(stakingManager.connect(user).unstake(amount))
+                .to.emit(stakingManager, "Unstake")
+                .withArgs(user.address, amount, amount)
+
+            expect(await stakingManager.balanceOf(user.address)).to.equal(0)
+            expect(await token.balanceOf(user.address)).to.equal(amount)
+        })
+
+        it("should revert when unstaking zero shares", async function () {
+            await expect(stakingManager.connect(user).unstake(0)).to.be.revertedWithCustomError(
+                stakingManager,
+                "AmountMustBeGreaterThanZero"
+            )
+        })
+
+        it("should revert when unstaking more shares than owned", async function () {
+            await expect(
+                stakingManager.connect(user).unstake(amount + 1n)
+            ).to.be.revertedWithCustomError(stakingManager, "InsufficientShares")
+        })
+    })
 })
