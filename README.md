@@ -171,7 +171,7 @@ async function main() {
     const amount = ethers.parseEther("1000")
 
     // Approve stakingManager to transfer tokens
-    const approveTx = await token.approve(stakingManager.target, amount)
+    const approveTx = await token.approve(await stakingManager.getAddress(), amount)
     await approveTx.wait()
 
     // Stake tokens
@@ -179,7 +179,7 @@ async function main() {
     await stakeTx.wait()
 
     // Check user's shares
-    const shares = await stakingManager.balanceOf(deployer.address)
+    const shares = await stakingManager.balanceOf(await deployer.getAddress())
 
     // Unstake tokens
     const unstakeTx = await stakingManager.unstake(shares)
