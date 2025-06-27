@@ -33,9 +33,11 @@ contract StakingManager is Ownable, StakingModifiers {
      */
     function stake(uint256 assets) external amountGreaterThanZero(assets) {
         token.safeTransferFrom(msg.sender, address(this), assets);
+        // Approve the staking vault to spend the assets
         token.forceApprove(address(stakingVault), assets);
-
+        // Deposit assets into the staking vault and receive shares
         uint256 shares = stakingVault.deposit(assets, address(this));
+        // Reset the approval to zero to prevent re-entrancy attacks
         token.forceApprove(address(stakingVault), 0);
 
         // Mint this ERC20 token as proof of ownership
@@ -51,6 +53,7 @@ contract StakingManager is Ownable, StakingModifiers {
     function unstake(
         uint256 shares
     ) external amountGreaterThanZero(shares) hasEnoughShares(shares) {
+        // Redeem shares for assets for the user
         uint256 assets = stakingVault.redeem(shares, msg.sender, address(this));
         // Burn the ERC20 staking token
         _burn(msg.sender, shares);
