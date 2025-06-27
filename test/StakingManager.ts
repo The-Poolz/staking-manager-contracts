@@ -125,14 +125,13 @@ describe("StakingManager", function () {
 
         it("should unstake tokens and burn shares", async function () {
             const amount = ethers.parseEther("50")
-
+            const beforeBalance = await stakingManager.balanceOf(user.address)
             await expect(stakingManager.connect(user).unstake(amount))
                 .to.emit(stakingManager, "Unstake")
                 .withArgs(user.address, amount, amount)
-
             expect(await stakingManager.balanceOf(user.address)).to.equal(0n)
 
-            expect(await token.balanceOf(user.address)).to.equal(amount)
+            expect(await token.balanceOf(user.address)).to.equal(beforeBalance + amount)
         })
 
         it("should revert on unstaking zero", async function () {
