@@ -14,7 +14,7 @@ abstract contract StakingModifiers is StakingState {
 
     /// @notice Reverts if the caller does not have enough shares
     modifier hasEnoughShares(uint256 shares) {
-        if (balanceOf(msg.sender) >= shares) revert InsufficientShares();
+        if (balanceOf(msg.sender) < shares) revert InsufficientShares();
         _;
     }
 }

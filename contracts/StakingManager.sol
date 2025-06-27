@@ -18,7 +18,7 @@ contract StakingManager is Ownable, StakingModifiers {
      */
     constructor(
         IERC4626 _stakingVault
-    ) ERC20("***", "***") Ownable(_msgSender()) {
+    ) ERC20("Staking Share", "STK") Ownable(_msgSender()) {
         if (address(_stakingVault) == address(0)) revert ZeroAddress();
 
         stakingVault = _stakingVault;
