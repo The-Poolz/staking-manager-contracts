@@ -17,8 +17,10 @@ contract StakingManager is Ownable, StakingModifiers {
      * @param _stakingVault The address of the IERC4626 vault where assets will be staked.
      */
     constructor(
-        IERC4626 _stakingVault
-    ) ERC20("Staking Share", "STK") Ownable(_msgSender()) {
+        IERC4626 _stakingVault,
+        string memory name,
+        string memory symbol
+    ) ERC20(name, symbol) Ownable(_msgSender()) {
         if (address(_stakingVault) == address(0)) revert ZeroAddress();
 
         stakingVault = _stakingVault;
