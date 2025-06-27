@@ -22,9 +22,11 @@ abstract contract StakingState is IStakingManager, ERC20 {
 
     /**
      * @dev Returns the total assets in the vault.
+     * This is the total amount of assets that have been staked in the vault from stakingManager.
+     * It is calculated by converting the total shares of the contract into assets.
      * @return The total assets in the vault.
      */
     function totalAssets() external view returns (uint256) {
-        return stakingVault.previewRedeem(stakingVault.balanceOf(address(this)));
+        return stakingVault.convertToAssets(stakingVault.balanceOf(address(this)));
     }
 }

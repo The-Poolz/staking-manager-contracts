@@ -48,17 +48,12 @@ contract StakingManager is Ownable, StakingModifiers {
      * @dev Allows users to unstake their shares and receive the underlying assets.
      * @param shares The number of shares to unstake.
      */
-    function unstake(uint256 shares) external amountGreaterThanZero(shares) {
-        uint256 assets = stakingVault.convertToAssets(shares);
-        // Check if the user has enough shares to unstake
-        if (balanceOf(msg.sender) >= assets) revert InsufficientShares();
-
-        stakingVault.withdraw(assets, address(this), address(this));
+    function unstake(
+        uint256 shares
+    ) external amountGreaterThanZero(shares) hasEnoughShares(shares) {
+        uint256 assets = stakingVault.redeem(shares, msg.sender, address(this));
         // Burn the ERC20 staking token
-        _burn(msg.sender, assets);
-        // Send tokens to user
-        token.safeTransfer(msg.sender, shares);
-
+        _burn(msg.sender, shares);
         emit Unstake(msg.sender, shares, assets);
     }
 }
