@@ -23,8 +23,11 @@ contract StakingManager is Ownable, StakingModifiers {
     ) ERC20(name, symbol) Ownable(_msgSender()) {
         if (address(_stakingVault) == address(0)) revert ZeroAddress();
 
+        // Initialize immutable variables
         stakingVault = _stakingVault;
         token = IERC20(_stakingVault.asset());
+        
+        // Initialize mutable state
         feeRate = 0; // Initialize with 0% fee
 
         emit StakingVaultSet(_stakingVault, token);

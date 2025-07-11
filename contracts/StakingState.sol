@@ -3,6 +3,8 @@ pragma solidity ^0.8.20;
 
 import "./interfaces/IStakingManager.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/interfaces/IERC4626.sol";
+import "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 abstract contract StakingState is IStakingManager, ERC20 {
     // The vault where assets are staked
