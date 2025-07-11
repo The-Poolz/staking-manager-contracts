@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.29;
+pragma solidity ^0.8.28;
 
 import "./interfaces/IStakingManager.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
