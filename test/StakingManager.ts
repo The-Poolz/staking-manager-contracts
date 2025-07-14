@@ -160,52 +160,76 @@ describe("StakingManager", function () {
             ({ owner, user, token, stakingManager } = await loadFixture(deployFixture))
         })
 
-        it("should initialize with zero fee rate", async function () {
-            expect(await stakingManager.feeRate()).to.equal(0)
+        it("should initialize with zero fee rates", async function () {
+            expect(await stakingManager.inputFeeRate()).to.equal(0)
+            expect(await stakingManager.outputFeeRate()).to.equal(0)
             expect(await stakingManager.accumulatedFees()).to.equal(0)
         })
 
-        it("should allow owner to set fee rate", async function () {
-            const newFeeRate = 500 // 5%
+        it("should allow owner to set input fee rate", async function () {
+            const newInputFeeRate = 500 // 5%
 
-            await expect(stakingManager.connect(owner).setFeeRate(newFeeRate))
-                .to.emit(stakingManager, "FeeRateUpdated")
-                .withArgs(0, newFeeRate)
+            await expect(stakingManager.connect(owner).setInputFeeRate(newInputFeeRate))
+                .to.emit(stakingManager, "InputFeeRateUpdated")
+                .withArgs(0, newInputFeeRate)
 
-            expect(await stakingManager.feeRate()).to.equal(newFeeRate)
+            expect(await stakingManager.inputFeeRate()).to.equal(newInputFeeRate)
         })
 
-        it("should revert when non-owner tries to set fee rate", async function () {
-            await expect(stakingManager.connect(user).setFeeRate(500))
+        it("should allow owner to set output fee rate", async function () {
+            const newOutputFeeRate = 300 // 3%
+
+            await expect(stakingManager.connect(owner).setOutputFeeRate(newOutputFeeRate))
+                .to.emit(stakingManager, "OutputFeeRateUpdated")
+                .withArgs(0, newOutputFeeRate)
+
+            expect(await stakingManager.outputFeeRate()).to.equal(newOutputFeeRate)
+        })
+
+        it("should revert when non-owner tries to set input fee rate", async function () {
+            await expect(stakingManager.connect(user).setInputFeeRate(500))
                 .to.be.revertedWithCustomError(stakingManager, "OwnableUnauthorizedAccount")
         })
 
-        it("should revert when setting fee rate above maximum", async function () {
+        it("should revert when non-owner tries to set output fee rate", async function () {
+            await expect(stakingManager.connect(user).setOutputFeeRate(300))
+                .to.be.revertedWithCustomError(stakingManager, "OwnableUnauthorizedAccount")
+        })
+
+        it("should revert when setting input fee rate above maximum", async function () {
             const maxFeeRate = await stakingManager.MAX_FEE_RATE()
             const excessiveFeeRate = maxFeeRate + 1n
 
-            await expect(stakingManager.connect(owner).setFeeRate(excessiveFeeRate))
+            await expect(stakingManager.connect(owner).setInputFeeRate(excessiveFeeRate))
                 .to.be.revertedWithCustomError(stakingManager, "InvalidFeeRate")
         })
 
-        it("should collect fees on staking", async function () {
-            const feeRate = 500 // 5%
+        it("should revert when setting output fee rate above maximum", async function () {
+            const maxFeeRate = await stakingManager.MAX_FEE_RATE()
+            const excessiveFeeRate = maxFeeRate + 1n
+
+            await expect(stakingManager.connect(owner).setOutputFeeRate(excessiveFeeRate))
+                .to.be.revertedWithCustomError(stakingManager, "InvalidFeeRate")
+        })
+
+        it("should collect input fees on staking", async function () {
+            const inputFeeRate = 500 // 5%
             const stakeAmount = ethers.parseEther("100")
-            const expectedFee = (stakeAmount * BigInt(feeRate)) / 10000n
+            const expectedFee = (stakeAmount * BigInt(inputFeeRate)) / 10000n
             const expectedNetAssets = stakeAmount - expectedFee
 
-            await stakingManager.connect(owner).setFeeRate(feeRate)
+            await stakingManager.connect(owner).setInputFeeRate(inputFeeRate)
             await token.connect(user).approve(await stakingManager.getAddress(), stakeAmount)
 
             await expect(stakingManager.connect(user).stake(stakeAmount))
-                .to.emit(stakingManager, "FeeCollected")
+                .to.emit(stakingManager, "InputFeeCollected")
                 .withArgs(expectedFee)
 
             expect(await stakingManager.accumulatedFees()).to.equal(expectedFee)
             expect(await stakingManager.balanceOf(user.address)).to.equal(expectedNetAssets)
         })
 
-        it("should not collect fees when fee rate is zero", async function () {
+        it("should not collect fees when input fee rate is zero", async function () {
             const stakeAmount = ethers.parseEther("100")
 
             await token.connect(user).approve(await stakingManager.getAddress(), stakeAmount)
@@ -216,11 +240,11 @@ describe("StakingManager", function () {
         })
 
         it("should allow owner to withdraw fees", async function () {
-            const feeRate = 1000 // 10%
+            const inputFeeRate = 1000 // 10%
             const stakeAmount = ethers.parseEther("100")
-            const expectedFee = (stakeAmount * BigInt(feeRate)) / 10000n
+            const expectedFee = (stakeAmount * BigInt(inputFeeRate)) / 10000n
 
-            await stakingManager.connect(owner).setFeeRate(feeRate)
+            await stakingManager.connect(owner).setInputFeeRate(inputFeeRate)
             await token.connect(user).approve(await stakingManager.getAddress(), stakeAmount)
             await stakingManager.connect(user).stake(stakeAmount)
 
@@ -249,14 +273,14 @@ describe("StakingManager", function () {
                 .to.be.revertedWithCustomError(stakingManager, "OwnableUnauthorizedAccount")
         })
 
-        it("should handle multiple stakes with fee accumulation", async function () {
-            const feeRate = 250 // 2.5%
+        it("should handle multiple stakes with input fee accumulation", async function () {
+            const inputFeeRate = 250 // 2.5%
             const firstStake = ethers.parseEther("40")
             const secondStake = ethers.parseEther("60")
             const totalStaked = firstStake + secondStake
-            const expectedTotalFee = (totalStaked * BigInt(feeRate)) / 10000n
+            const expectedTotalFee = (totalStaked * BigInt(inputFeeRate)) / 10000n
 
-            await stakingManager.connect(owner).setFeeRate(feeRate)
+            await stakingManager.connect(owner).setInputFeeRate(inputFeeRate)
             await token.connect(user).approve(await stakingManager.getAddress(), totalStaked)
 
             await stakingManager.connect(user).stake(firstStake)
@@ -265,18 +289,73 @@ describe("StakingManager", function () {
             expect(await stakingManager.accumulatedFees()).to.equal(expectedTotalFee)
         })
 
-        it("should calculate correct net assets with maximum fee rate", async function () {
+        it("should calculate correct net assets with maximum input fee rate", async function () {
             const maxFeeRate = await stakingManager.MAX_FEE_RATE() // 10%
             const stakeAmount = ethers.parseEther("1000")
             const expectedFee = (stakeAmount * maxFeeRate) / 10000n
             const expectedNetAssets = stakeAmount - expectedFee
 
-            await stakingManager.connect(owner).setFeeRate(maxFeeRate)
+            await stakingManager.connect(owner).setInputFeeRate(maxFeeRate)
             await token.connect(user).approve(await stakingManager.getAddress(), stakeAmount)
             await stakingManager.connect(user).stake(stakeAmount)
 
             expect(await stakingManager.accumulatedFees()).to.equal(expectedFee)
             expect(await stakingManager.balanceOf(user.address)).to.equal(expectedNetAssets)
+        })
+
+        it("should collect output fees on unstaking", async function () {
+            const outputFeeRate = 300 // 3%
+            const stakeAmount = ethers.parseEther("100")
+
+            // First stake without any fees
+            await token.connect(user).approve(await stakingManager.getAddress(), stakeAmount)
+            await stakingManager.connect(user).stake(stakeAmount)
+
+            // Set output fee rate
+            await stakingManager.connect(owner).setOutputFeeRate(outputFeeRate)
+
+            const userShares = await stakingManager.balanceOf(user.address)
+            const userTokenBalanceBefore = await token.balanceOf(user.address)
+
+            // Unstake and expect output fee to be collected
+            await expect(stakingManager.connect(user).unstake(userShares))
+                .to.emit(stakingManager, "OutputFeeCollected")
+
+            // Check that some fee was collected
+            expect(await stakingManager.accumulatedFees()).to.be.greaterThan(0)
+
+            // User should receive less than the full amount due to output fee
+            const userTokenBalanceAfter = await token.balanceOf(user.address)
+            const receivedAmount = userTokenBalanceAfter - userTokenBalanceBefore
+            expect(receivedAmount).to.be.lessThan(stakeAmount)
+        })
+
+        it("should handle both input and output fees", async function () {
+            const inputFeeRate = 200 // 2%
+            const outputFeeRate = 300 // 3%
+            const stakeAmount = ethers.parseEther("100")
+
+            // Set both fee rates
+            await stakingManager.connect(owner).setInputFeeRate(inputFeeRate)
+            await stakingManager.connect(owner).setOutputFeeRate(outputFeeRate)
+
+            await token.connect(user).approve(await stakingManager.getAddress(), stakeAmount)
+
+            // Stake with input fee
+            await expect(stakingManager.connect(user).stake(stakeAmount))
+                .to.emit(stakingManager, "InputFeeCollected")
+
+            const feesAfterStake = await stakingManager.accumulatedFees()
+            expect(feesAfterStake).to.be.greaterThan(0)
+
+            const userShares = await stakingManager.balanceOf(user.address)
+
+            // Unstake with output fee
+            await expect(stakingManager.connect(user).unstake(userShares))
+                .to.emit(stakingManager, "OutputFeeCollected")
+
+            const feesAfterUnstake = await stakingManager.accumulatedFees()
+            expect(feesAfterUnstake).to.be.greaterThan(feesAfterStake)
         })
     })
 })

@@ -27,8 +27,9 @@ contract StakingManager is Ownable, StakingModifiers {
         stakingVault = _stakingVault;
         token = IERC20(_stakingVault.asset());
         
-        // Initialize mutable state
-        feeRate = 0; // Initialize with 0% fee
+        // Initialize mutable state with 0% fees
+        inputFeeRate = 0;
+        outputFeeRate = 0;
 
         emit StakingVaultSet(_stakingVault, token);
     }
@@ -40,13 +41,13 @@ contract StakingManager is Ownable, StakingModifiers {
     function stake(uint256 assets) external amountGreaterThanZero(assets) {
         token.safeTransferFrom(msg.sender, address(this), assets);
         
-        // Calculate fee and net assets
-        (uint256 feeAmount, uint256 netAssets) = _calculateFee(assets);
+        // Calculate input fee and net assets for staking
+        (uint256 feeAmount, uint256 netAssets) = _calculateInputFee(assets);
         
-        // Collect fee if applicable
+        // Collect input fee if applicable
         if (feeAmount > 0) {
             accumulatedFees += feeAmount;
-            emit FeeCollected(feeAmount);
+            emit InputFeeCollected(feeAmount);
         }
         
         // Approve the staking vault to spend the net assets
@@ -69,24 +70,50 @@ contract StakingManager is Ownable, StakingModifiers {
     function unstake(
         uint256 shares
     ) external amountGreaterThanZero(shares) hasEnoughShares(shares) {
-        // Redeem shares for assets for the user
-        uint256 assets = stakingVault.redeem(shares, msg.sender, address(this));
+        // Redeem shares for assets
+        uint256 grossAssets = stakingVault.redeem(shares, address(this), address(this));
+        
+        // Calculate output fee and net assets for unstaking
+        (uint256 feeAmount, uint256 netAssets) = _calculateOutputFee(grossAssets);
+        
+        // Collect output fee if applicable
+        if (feeAmount > 0) {
+            accumulatedFees += feeAmount;
+            emit OutputFeeCollected(feeAmount);
+        }
+        
+        // Transfer net assets to user
+        token.safeTransfer(msg.sender, netAssets);
+        
         // Burn the ERC20 staking token
         _burn(msg.sender, shares);
-        emit Unstake(msg.sender, shares, assets);
+        emit Unstake(msg.sender, shares, netAssets);
     }
 
     /**
-     * @dev Allows the owner to set the fee rate for staking operations.
-     * @param _feeRate The new fee rate in basis points (1 basis point = 0.01%).
+     * @dev Allows the owner to set the input fee rate for staking operations.
+     * @param _inputFeeRate The new input fee rate in basis points (1 basis point = 0.01%).
      */
-    function setFeeRate(uint256 _feeRate) external onlyOwner {
-        if (_feeRate > MAX_FEE_RATE) revert InvalidFeeRate();
+    function setInputFeeRate(uint256 _inputFeeRate) external onlyOwner {
+        if (_inputFeeRate > MAX_FEE_RATE) revert InvalidFeeRate();
         
-        uint256 oldFeeRate = feeRate;
-        feeRate = _feeRate;
+        uint256 oldFeeRate = inputFeeRate;
+        inputFeeRate = _inputFeeRate;
         
-        emit FeeRateUpdated(oldFeeRate, _feeRate);
+        emit InputFeeRateUpdated(oldFeeRate, _inputFeeRate);
+    }
+
+    /**
+     * @dev Allows the owner to set the output fee rate for unstaking operations.
+     * @param _outputFeeRate The new output fee rate in basis points (1 basis point = 0.01%).
+     */
+    function setOutputFeeRate(uint256 _outputFeeRate) external onlyOwner {
+        if (_outputFeeRate > MAX_FEE_RATE) revert InvalidFeeRate();
+        
+        uint256 oldFeeRate = outputFeeRate;
+        outputFeeRate = _outputFeeRate;
+        
+        emit OutputFeeRateUpdated(oldFeeRate, _outputFeeRate);
     }
 
     /**

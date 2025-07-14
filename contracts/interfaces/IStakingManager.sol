@@ -14,11 +14,17 @@ interface IStakingManager {
     /// @notice Emitted when the staking vault is set.
     event StakingVaultSet(IERC4626 stakingVault, IERC20 token);
 
-    /// @notice Emitted when fees are collected.
-    event FeeCollected(uint256 feeAmount);
+    /// @notice Emitted when fees are collected during staking.
+    event InputFeeCollected(uint256 feeAmount);
 
-    /// @notice Emitted when the fee rate is updated.
-    event FeeRateUpdated(uint256 oldFeeRate, uint256 newFeeRate);
+    /// @notice Emitted when fees are collected during unstaking.
+    event OutputFeeCollected(uint256 feeAmount);
+
+    /// @notice Emitted when the input fee rate is updated.
+    event InputFeeRateUpdated(uint256 oldFeeRate, uint256 newFeeRate);
+
+    /// @notice Emitted when the output fee rate is updated.
+    event OutputFeeRateUpdated(uint256 oldFeeRate, uint256 newFeeRate);
 
     /// @notice Emitted when fees are withdrawn.
     event FeesWithdrawn(address indexed recipient, uint256 amount);
@@ -36,10 +42,16 @@ interface IStakingManager {
     function unstake(uint256 shares) external;
 
     /**
-     * @notice Set the fee rate for staking operations.
-     * @param _feeRate The new fee rate in basis points.
+     * @notice Set the input fee rate for staking operations.
+     * @param _inputFeeRate The new input fee rate in basis points.
      */
-    function setFeeRate(uint256 _feeRate) external;
+    function setInputFeeRate(uint256 _inputFeeRate) external;
+
+    /**
+     * @notice Set the output fee rate for unstaking operations.
+     * @param _outputFeeRate The new output fee rate in basis points.
+     */
+    function setOutputFeeRate(uint256 _outputFeeRate) external;
 
     /**
      * @notice Withdraw accumulated fees.
