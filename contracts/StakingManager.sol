@@ -23,8 +23,13 @@ contract StakingManager is Ownable, StakingModifiers {
     ) ERC20(name, symbol) Ownable(_msgSender()) {
         if (address(_stakingVault) == address(0)) revert ZeroAddress();
 
+        // Initialize immutable variables
         stakingVault = _stakingVault;
         token = IERC20(_stakingVault.asset());
+        
+        // Initialize mutable state with 0% fees
+        inputFeeRate = 0;
+        outputFeeRate = 0;
 
         emit StakingVaultSet(_stakingVault, token);
     }
@@ -35,10 +40,14 @@ contract StakingManager is Ownable, StakingModifiers {
      */
     function stake(uint256 assets) external amountGreaterThanZero(assets) {
         token.safeTransferFrom(msg.sender, address(this), assets);
-        // Approve the staking vault to spend the assets
-        token.forceApprove(address(stakingVault), assets);
-        // Deposit assets into the staking vault and receive shares
-        uint256 shares = stakingVault.deposit(assets, address(this));
+        
+        // Apply input fee and get net assets (fee accumulation handled internally)
+        uint256 netAssets = _applyInputFee(assets);
+        
+        // Approve the staking vault to spend the net assets
+        token.forceApprove(address(stakingVault), netAssets);
+        // Deposit net assets into the staking vault and receive shares
+        uint256 shares = stakingVault.deposit(netAssets, address(this));
         // Reset the approval to zero to prevent re-entrancy attacks
         token.forceApprove(address(stakingVault), 0);
 
@@ -55,10 +64,59 @@ contract StakingManager is Ownable, StakingModifiers {
     function unstake(
         uint256 shares
     ) external amountGreaterThanZero(shares) hasEnoughShares(shares) {
-        // Redeem shares for assets for the user
-        uint256 assets = stakingVault.redeem(shares, msg.sender, address(this));
+        // Redeem shares for assets
+        uint256 grossAssets = stakingVault.redeem(shares, address(this), address(this));
+        
+        // Apply output fee and get net assets (fee accumulation handled internally)
+        uint256 netAssets = _applyOutputFee(grossAssets);
+        
+        // Transfer net assets to user
+        token.safeTransfer(msg.sender, netAssets);
+        
         // Burn the ERC20 staking token
         _burn(msg.sender, shares);
-        emit Unstake(msg.sender, shares, assets);
+        emit Unstake(msg.sender, shares, netAssets);
+    }
+
+    /**
+     * @dev Allows the owner to set the input fee rate for staking operations.
+     * @param _inputFeeRate The new input fee rate in basis points (1 basis point = 0.01%).
+     */
+    function setInputFeeRate(uint256 _inputFeeRate) external onlyOwner {
+        if (_inputFeeRate > MAX_FEE_RATE) revert InvalidFeeRate();
+        
+        uint256 oldFeeRate = inputFeeRate;
+        inputFeeRate = _inputFeeRate;
+        
+        emit InputFeeRateUpdated(oldFeeRate, _inputFeeRate);
+    }
+
+    /**
+     * @dev Allows the owner to set the output fee rate for unstaking operations.
+     * @param _outputFeeRate The new output fee rate in basis points (1 basis point = 0.01%).
+     */
+    function setOutputFeeRate(uint256 _outputFeeRate) external onlyOwner {
+        if (_outputFeeRate > MAX_FEE_RATE) revert InvalidFeeRate();
+        
+        uint256 oldFeeRate = outputFeeRate;
+        outputFeeRate = _outputFeeRate;
+        
+        emit OutputFeeRateUpdated(oldFeeRate, _outputFeeRate);
+    }
+
+    /**
+     * @dev Allows the owner to withdraw accumulated fees.
+     * @param recipient The address to receive the fees.
+     */
+    function withdrawFees(address recipient) external onlyOwner {
+        if (recipient == address(0)) revert ZeroAddress();
+        if (accumulatedFees == 0) revert NoFeesToWithdraw();
+        
+        uint256 feesToWithdraw = accumulatedFees;
+        accumulatedFees = 0;
+        
+        token.safeTransfer(recipient, feesToWithdraw);
+        
+        emit FeesWithdrawn(recipient, feesToWithdraw);
     }
 }
