@@ -41,14 +41,8 @@ contract StakingManager is Ownable, StakingModifiers {
     function stake(uint256 assets) external amountGreaterThanZero(assets) {
         token.safeTransferFrom(msg.sender, address(this), assets);
         
-        // Calculate input fee and net assets for staking
-        (uint256 feeAmount, uint256 netAssets) = _calculateInputFee(assets);
-        
-        // Collect input fee if applicable
-        if (feeAmount > 0) {
-            accumulatedFees += feeAmount;
-            emit InputFeeCollected(feeAmount);
-        }
+        // Apply input fee and get net assets (fee accumulation handled internally)
+        uint256 netAssets = _applyInputFee(assets);
         
         // Approve the staking vault to spend the net assets
         token.forceApprove(address(stakingVault), netAssets);
@@ -73,14 +67,8 @@ contract StakingManager is Ownable, StakingModifiers {
         // Redeem shares for assets
         uint256 grossAssets = stakingVault.redeem(shares, address(this), address(this));
         
-        // Calculate output fee and net assets for unstaking
-        (uint256 feeAmount, uint256 netAssets) = _calculateOutputFee(grossAssets);
-        
-        // Collect output fee if applicable
-        if (feeAmount > 0) {
-            accumulatedFees += feeAmount;
-            emit OutputFeeCollected(feeAmount);
-        }
+        // Apply output fee and get net assets (fee accumulation handled internally)
+        uint256 netAssets = _applyOutputFee(grossAssets);
         
         // Transfer net assets to user
         token.safeTransfer(msg.sender, netAssets);

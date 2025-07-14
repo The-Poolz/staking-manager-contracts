@@ -47,34 +47,63 @@ abstract contract StakingState is IStakingManager, ERC20 {
     }
 
     /**
-     * @dev Calculates the fee amount for a given asset amount and fee rate.
+     * @dev Calculates the fee amount based on the assets and fee rate.
      * @param assets The amount of assets to calculate the fee for.
-     * @param feeRate The fee rate in basis points to apply.
-     * @return feeAmount The fee amount to be collected.
-     * @return netAssets The net assets after fee deduction.
+     * @param feeRate The fee rate in basis points.
+     * @return feeAmount The calculated fee amount.
      */
-    function _calculateFee(uint256 assets, uint256 feeRate) internal pure returns (uint256 feeAmount, uint256 netAssets) {
+    function _calculateFeeAmount(
+        uint256 assets,
+        uint256 feeRate
+    ) internal pure returns (uint256 feeAmount) {
         feeAmount = (assets * feeRate) / 10000;
+    }
+
+    /**
+     * @dev Calculates the net assets after fee deduction.
+     * @param assets The amount of assets to calculate the fee for.
+     * @param feeAmount The fee amount to be deducted.
+     * @return netAssets The net assets after fee deduction.
+     *
+     */
+    function _calculateFeeAssets(
+        uint256 assets,
+        uint256 feeAmount
+    ) internal pure returns (uint256 netAssets) {
         netAssets = assets - feeAmount;
     }
 
     /**
-     * @dev Calculates the input fee amount for staking operations.
-     * @param assets The amount of assets to calculate the fee for.
-     * @return feeAmount The fee amount to be collected.
+     * @dev Applies input fee on staking, accumulates fees, and returns net assets.
+     * @param assets The amount of assets to apply input fee to.
      * @return netAssets The net assets after fee deduction.
      */
-    function _calculateInputFee(uint256 assets) internal view returns (uint256 feeAmount, uint256 netAssets) {
-        return _calculateFee(assets, inputFeeRate);
+    function _applyInputFee(
+        uint256 assets
+    ) internal returns (uint256 netAssets) {
+        uint256 feeAmount = _calculateFeeAmount(assets, inputFeeRate);
+        netAssets = _calculateFeeAssets(assets, feeAmount);
+
+        if (feeAmount > 0) {
+            accumulatedFees += feeAmount;
+            emit InputFeeCollected(feeAmount);
+        }
     }
 
     /**
-     * @dev Calculates the output fee amount for unstaking operations.
-     * @param assets The amount of assets to calculate the fee for.
-     * @return feeAmount The fee amount to be collected.
+     * @dev Applies output fee on unstaking, accumulates fees, and returns net assets.
+     * @param assets The amount of assets to apply output fee to.
      * @return netAssets The net assets after fee deduction.
      */
-    function _calculateOutputFee(uint256 assets) internal view returns (uint256 feeAmount, uint256 netAssets) {
-        return _calculateFee(assets, outputFeeRate);
+    function _applyOutputFee(
+        uint256 assets
+    ) internal returns (uint256 netAssets) {
+        uint256 feeAmount = _calculateFeeAmount(assets, outputFeeRate);
+        netAssets = _calculateFeeAssets(assets, feeAmount);
+
+        if (feeAmount > 0) {
+            accumulatedFees += feeAmount;
+            emit OutputFeeCollected(feeAmount);
+        }
     }
 }
