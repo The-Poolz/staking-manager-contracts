@@ -20,7 +20,7 @@ describe("StakingManager", function () {
         const Manager = await ethers.getContractFactory("StakingManager")
         const stakingManager: StakingManager = await Manager.deploy(await vault.getAddress(), name, symbol)
 
-        await token.transfer(user.address, ethers.parseEther("100"))
+        await token.transfer(user.address, ethers.parseEther("10000"))
 
         return { owner, user, token, vault, stakingManager }
     }
@@ -115,23 +115,22 @@ describe("StakingManager", function () {
 
         beforeEach(async function () {
             ({ user, token, stakingManager } = await loadFixture(deployFixture))
-
             const amount = ethers.parseEther("50")
-
+            
             await token.connect(user).approve(await stakingManager.getAddress(), amount)
-
             await stakingManager.connect(user).stake(amount)
         })
 
         it("should unstake tokens and burn shares", async function () {
             const amount = ethers.parseEther("50")
-            const beforeBalance = await stakingManager.balanceOf(user.address)
+            const userTokenBalanceBefore = await token.balanceOf(user.address)
+            
             await expect(stakingManager.connect(user).unstake(amount))
                 .to.emit(stakingManager, "Unstake")
                 .withArgs(user.address, amount, amount)
+            
             expect(await stakingManager.balanceOf(user.address)).to.equal(0n)
-
-            expect(await token.balanceOf(user.address)).to.equal(beforeBalance + amount)
+            expect(await token.balanceOf(user.address)).to.equal(userTokenBalanceBefore + amount)
         })
 
         it("should revert on unstaking zero", async function () {
