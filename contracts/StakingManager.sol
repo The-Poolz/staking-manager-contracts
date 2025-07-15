@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "./StakingModifiers.sol";
 
 /**
@@ -15,6 +16,7 @@ contract StakingManager is
     Initializable, 
     OwnableUpgradeable, 
     UUPSUpgradeable,
+    ReentrancyGuardUpgradeable,
     StakingModifiers 
 {
     using SafeERC20 for IERC20;
@@ -42,6 +44,7 @@ contract StakingManager is
 
         // Initialize inherited contracts
         __Ownable_init(owner);
+        __ReentrancyGuard_init();
         __ERC20_init(name, symbol);
         __UUPSUpgradeable_init();
 
@@ -66,7 +69,7 @@ contract StakingManager is
      * @dev Allows users to stake assets in the vault.
      * @param assets The amount of assets to stake.
      */
-    function stake(uint256 assets) external amountGreaterThanZero(assets) {
+    function stake(uint256 assets) external amountGreaterThanZero(assets) nonReentrant {
         token.safeTransferFrom(msg.sender, address(this), assets);
         
         // Apply input fee and get net assets (fee accumulation handled internally)
@@ -90,7 +93,7 @@ contract StakingManager is
      */
     function unstake(
         uint256 shares
-    ) external amountGreaterThanZero(shares) hasEnoughShares(shares) {
+    ) external amountGreaterThanZero(shares) hasEnoughShares(shares) nonReentrant {
         // Redeem shares for assets
         uint256 grossAssets = stakingVault.redeem(shares, address(this), address(this));
         
