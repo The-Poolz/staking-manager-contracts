@@ -2,28 +2,53 @@
 pragma solidity ^0.8.29;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "./StakingModifiers.sol";
 
 /**
  * @title StakingManager
- * @dev Staking contract that also acts as an ERC20 token representing staked shares.
+ * @dev Upgradeable staking contract that also acts as an ERC20 token representing staked shares.
  */
-contract StakingManager is Ownable, StakingModifiers {
+contract StakingManager is 
+    Initializable, 
+    OwnableUpgradeable, 
+    UUPSUpgradeable,
+    ReentrancyGuardUpgradeable,
+    StakingModifiers 
+{
     using SafeERC20 for IERC20;
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
 
     /**
      * @dev Initializes the contract with the staking vault address.
      * @param _stakingVault The address of the IERC4626 vault where assets will be staked.
+     * @param name The name of the ERC20 token.
+     * @param symbol The symbol of the ERC20 token.
+     * @param owner The owner of the contract.
      */
-    constructor(
+    function initialize(
         IERC4626 _stakingVault,
         string memory name,
-        string memory symbol
-    ) ERC20(name, symbol) Ownable(_msgSender()) {
+        string memory symbol,
+        address owner
+    ) public initializer {
         if (address(_stakingVault) == address(0)) revert ZeroAddress();
+        if (owner == address(0)) revert ZeroAddress();
 
-        // Initialize immutable variables
+        // Initialize inherited contracts
+        __Ownable_init(owner);
+        __ReentrancyGuard_init();
+        __ERC20_init(name, symbol);
+        __UUPSUpgradeable_init();
+
+        // Initialize immutable-like variables (stored in storage for upgradeable contracts)
         stakingVault = _stakingVault;
         token = IERC20(_stakingVault.asset());
         
@@ -35,10 +60,16 @@ contract StakingManager is Ownable, StakingModifiers {
     }
 
     /**
+     * @dev Function that should revert when `msg.sender` is not authorized to upgrade the contract.
+     * Called by {upgradeTo} and {upgradeToAndCall}.
+     */
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+
+    /**
      * @dev Allows users to stake assets in the vault.
      * @param assets The amount of assets to stake.
      */
-    function stake(uint256 assets) external amountGreaterThanZero(assets) {
+    function stake(uint256 assets) external amountGreaterThanZero(assets) nonReentrant {
         token.safeTransferFrom(msg.sender, address(this), assets);
         
         // Apply input fee and get net assets (fee accumulation handled internally)
@@ -53,7 +84,6 @@ contract StakingManager is Ownable, StakingModifiers {
 
         // Mint this ERC20 token as proof of ownership
         _mint(msg.sender, shares);
-
         emit Stake(msg.sender, assets, shares);
     }
 
@@ -63,7 +93,7 @@ contract StakingManager is Ownable, StakingModifiers {
      */
     function unstake(
         uint256 shares
-    ) external amountGreaterThanZero(shares) hasEnoughShares(shares) {
+    ) external amountGreaterThanZero(shares) hasEnoughShares(shares) nonReentrant {
         // Redeem shares for assets
         uint256 grossAssets = stakingVault.redeem(shares, address(this), address(this));
         
@@ -118,5 +148,12 @@ contract StakingManager is Ownable, StakingModifiers {
         token.safeTransfer(recipient, feesToWithdraw);
         
         emit FeesWithdrawn(recipient, feesToWithdraw);
+    }
+
+    /**
+     * @dev Returns the current version of the contract.
+     */
+    function version() external pure returns (string memory) {
+        return "1.0.0";
     }
 }
