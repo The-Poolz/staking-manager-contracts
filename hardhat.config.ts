@@ -7,6 +7,7 @@ import "@nomicfoundation/hardhat-network-helpers"
 import "@nomicfoundation/hardhat-ethers"
 import "@nomicfoundation/hardhat-chai-matchers"
 import "@truffle/dashboard-hardhat-plugin"
+import "@openzeppelin/hardhat-upgrades"
 
 const config: HardhatUserConfig = {
     defaultNetwork: "hardhat",
@@ -69,7 +70,6 @@ const config: HardhatUserConfig = {
         forceTerminalOutput: true,
         L1: "binance",
         forceTerminalOutputFormat: "terminal",
-        showTimeSpent: true,
     },
 }
 

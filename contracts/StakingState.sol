@@ -2,16 +2,16 @@
 pragma solidity ^0.8.29;
 
 import "./interfaces/IStakingManager.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import "@openzeppelin/contracts/interfaces/IERC20.sol";
 
-abstract contract StakingState is IStakingManager, ERC20 {
-    // The vault where assets are staked
-    IERC4626 public immutable stakingVault;
+abstract contract StakingState is IStakingManager, ERC20Upgradeable {
+    // The vault where assets are staked (stored in storage for upgradeable contracts)
+    IERC4626 public stakingVault;
 
-    // The token that is being staked
-    IERC20 public immutable token;
+    // The token that is being staked (stored in storage for upgradeable contracts)
+    IERC20 public token;
 
     // Input fee rate in basis points (1 basis point = 0.01%, 10000 = 100%)
     // Applied when staking
@@ -106,4 +106,11 @@ abstract contract StakingState is IStakingManager, ERC20 {
             emit OutputFeeCollected(feeAmount);
         }
     }
+
+    /**
+     * @dev This empty reserved space is put in place to allow future versions to add new
+     * variables without shifting down storage in the inheritance chain.
+     * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
+     */
+    uint256[50] private __gap;
 }

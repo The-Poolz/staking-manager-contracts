@@ -4,8 +4,7 @@
 [![codecov](https://codecov.io/gh/The-Poolz/StakingManager/graph/badge.svg)](https://codecov.io/gh/The-Poolz/StakingManager)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/The-Poolz/StakingManager/blob/master/LICENSE)
 
-**`StakingManager`** is a **Solidity** smart contract that enables users to stake **ERC-20** tokens into an **IERC4626** compatible vault. When users stake, they receive **ERC-20** "staking shares" that represent their position. These shares can be redeemed later for the underlying assets along with any accrued yield. This project uses [Hardhat](https://hardhat.org/)
-for development and testing.
+**`StakingManager`** is an **upgradeable Solidity** smart contract that enables users to stake **ERC-20** tokens into an **IERC4626** compatible vault with a **dual fee system**. When users stake, they receive **ERC-20** "staking shares" that represent their position. These shares can be redeemed later for the underlying assets along with any accrued yield. The contract features **input fees** (on staking) and **output fees** (on unstaking) with basis point precision. Built with **UUPS proxy pattern** for seamless upgrades while preserving user state. This project uses [Hardhat](https://hardhat.org/) for development and testing.
 
 ## 📚 Table of Contents
 
@@ -27,10 +26,14 @@ for development and testing.
 
 ## Features
 
--   Stake **ERC-20** tokens into a vault implementing `IERC4626`.
--   Mint staking shares (**ERC-20** tokens) to represent user deposits.
--   Redeem shares to receive underlying tokens and rewards.
--   Secure token handling via **OpenZeppelin** libraries.
+-   🚀 **Upgradeable Contract Architecture** - UUPS proxy pattern for seamless upgrades
+-   💰 **Dual Fee System** - Separate input and output fees with basis point precision
+-   🏦 **ERC4626 Vault Integration** - Compatible with any ERC4626 yield-bearing vault
+-   🪙 **ERC20 Token Representation** - Staked assets represented as transferable shares
+-   🔒 **Access Control** - Owner-based fee management and upgrade authorization
+-   📊 **Fee Accumulation** - Automatic fee collection and withdrawal functionality
+-   🛡️ **Security Features** - Comprehensive validation and error handling
+-   ⚡ **Gas Optimized** - Efficient operations with custom errors
 
 ---
 
@@ -77,13 +80,27 @@ Coverage results are stored in the **coverage/** directory
 
 ## Deployment
 
-Deploy scripts live in the `scripts` folder. To deploy `StakingManager` run:
+Deploy scripts live in the `scripts` folder. The StakingManager uses upgradeable proxy pattern:
 
 ```bash
+# Deploy upgradeable StakingManager with proxy
 npx hardhat run scripts/deploy.ts --network <network>
+
+# Run dual fee system example
+npx hardhat run scripts/dualFeeExample.ts --network <network>
+
+# Upgrade existing deployment
+npx hardhat run scripts/upgradeContract.ts --network <network>
 ```
 
 Replace `<network>` with one of the configured networks (see below).
+
+### Upgrade Process
+
+The contract uses OpenZeppelin's UUPS proxy pattern for upgrades:
+1. **Deploy**: Initial deployment creates proxy and implementation
+2. **Upgrade**: New implementation deployed, proxy updated
+3. **State Preserved**: All user balances and fees maintained across upgrades
 
 ## Network Configuration
 
