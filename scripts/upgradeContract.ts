@@ -8,8 +8,11 @@ async function main() {
     const [deployer] = await ethers.getSigners()
     console.log("Upgrading contract with account:", deployer.address)
 
-    // Replace with your actual proxy address from deployment
-    const PROXY_ADDRESS = "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9"
+    // Retrieve the proxy address from environment variables or command-line arguments
+    const PROXY_ADDRESS = process.env.PROXY_ADDRESS || process.argv[2]
+    if (!PROXY_ADDRESS) {
+        throw new Error("Proxy address not provided. Set the PROXY_ADDRESS environment variable or pass it as a command-line argument.")
+    }
 
     // Get the current implementation
     const currentImpl = await upgrades.erc1967.getImplementationAddress(PROXY_ADDRESS)
