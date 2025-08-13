@@ -30,5 +30,4 @@ abstract contract StakingModifiers {
         if (fee == 0) revert Errors.NoFeesToWithdraw();
         _;
     }
-
 }
