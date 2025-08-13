@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import "./interfaces/IStakingManager.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import "@openzeppelin/contracts/interfaces/IERC4626.sol";
-import "@openzeppelin/contracts/interfaces/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "./interfaces/Events.sol";
 
-abstract contract StakingState is IStakingManager, ERC20Upgradeable {
+abstract contract StakingState {
     // The vault where assets are staked (stored in storage for upgradeable contracts)
     IERC4626 public stakingVault;
 
@@ -33,7 +31,7 @@ abstract contract StakingState is IStakingManager, ERC20Upgradeable {
      * @return The total assets staked by the user.
      */
     function totalUserAssets(address user) external view returns (uint256) {
-        return stakingVault.previewRedeem(balanceOf(user));
+        return stakingVault.previewRedeem(IERC20(address(this)).balanceOf(user));
     }
 
     /**
@@ -86,7 +84,7 @@ abstract contract StakingState is IStakingManager, ERC20Upgradeable {
 
         if (feeAmount > 0) {
             accumulatedFees += feeAmount;
-            emit InputFeeCollected(feeAmount);
+            emit Events.InputFeeCollected(feeAmount);
         }
     }
 
@@ -103,7 +101,7 @@ abstract contract StakingState is IStakingManager, ERC20Upgradeable {
 
         if (feeAmount > 0) {
             accumulatedFees += feeAmount;
-            emit OutputFeeCollected(feeAmount);
+            emit Events.OutputFeeCollected(feeAmount);
         }
     }
 

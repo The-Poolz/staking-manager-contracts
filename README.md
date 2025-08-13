@@ -18,6 +18,7 @@
     -   [**Deployment**](#deployment)
     -   [**Network Configuration**](#network-configuration)
     -   [**Environment Variables**](#environment-variables)
+-   [**UML Diagram**](#uml-diagram)
 -   [**Functions Overview**](#functions-overview)
 -   [**Usage Example**](#usage-example)
 -   [**License**](#license)
@@ -126,6 +127,9 @@ CMC_API_KEY=your_coinmarketcap_key   # for gas reporter
 
 These variables are optional for local development but required for network
 deployments and contract verification.
+
+## UML diagram
+![classDiagram](uml.svg)
 
 ## Functions Overview
 

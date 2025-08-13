@@ -1,23 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
+import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
-import "./StakingModifiers.sol";
+import "./StakingAdmin.sol";
+import "./interfaces/IStakingManager.sol";
 
 /**
  * @title StakingManager
  * @dev Upgradeable staking contract that also acts as an ERC20 token representing staked shares.
  */
-contract StakingManager is 
-    Initializable, 
-    OwnableUpgradeable, 
-    UUPSUpgradeable,
-    ReentrancyGuardUpgradeable,
-    StakingModifiers 
+contract StakingManager is
+    IStakingManager,
+    ERC20Upgradeable,
+    StakingAdmin,
+    ReentrancyGuardUpgradeable
 {
     using SafeERC20 for IERC20;
 
@@ -38,14 +36,11 @@ contract StakingManager is
         string memory name,
         string memory symbol,
         address owner
-    ) public initializer {
-        if (address(_stakingVault) == address(0)) revert ZeroAddress();
-        if (owner == address(0)) revert ZeroAddress();
-
+    ) public initializer notZeroAddress(address(_stakingVault)) notZeroAddress(owner) {
         // Initialize inherited contracts
+        __ERC20_init(name, symbol);
         __Ownable_init(owner);
         __ReentrancyGuard_init();
-        __ERC20_init(name, symbol);
         __UUPSUpgradeable_init();
 
         // Initialize immutable-like variables (stored in storage for upgradeable contracts)
@@ -56,14 +51,8 @@ contract StakingManager is
         inputFeeRate = 0;
         outputFeeRate = 0;
 
-        emit StakingVaultSet(_stakingVault, token);
+        emit Events.StakingVaultSet(_stakingVault, token);
     }
-
-    /**
-     * @dev Function that should revert when `msg.sender` is not authorized to upgrade the contract.
-     * Called by {upgradeTo} and {upgradeToAndCall}.
-     */
-    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     /**
      * @dev Allows users to stake assets in the vault.
@@ -84,7 +73,7 @@ contract StakingManager is
 
         // Mint this ERC20 token as proof of ownership
         _mint(msg.sender, shares);
-        emit Stake(msg.sender, assets, shares);
+        emit Events.Stake(msg.sender, assets, shares);
     }
 
     /**
@@ -105,55 +94,6 @@ contract StakingManager is
         
         // Burn the ERC20 staking token
         _burn(msg.sender, shares);
-        emit Unstake(msg.sender, shares, netAssets);
-    }
-
-    /**
-     * @dev Allows the owner to set the input fee rate for staking operations.
-     * @param _inputFeeRate The new input fee rate in basis points (1 basis point = 0.01%).
-     */
-    function setInputFeeRate(uint256 _inputFeeRate) external onlyOwner {
-        if (_inputFeeRate > MAX_FEE_RATE) revert InvalidFeeRate();
-        
-        uint256 oldFeeRate = inputFeeRate;
-        inputFeeRate = _inputFeeRate;
-        
-        emit InputFeeRateUpdated(oldFeeRate, _inputFeeRate);
-    }
-
-    /**
-     * @dev Allows the owner to set the output fee rate for unstaking operations.
-     * @param _outputFeeRate The new output fee rate in basis points (1 basis point = 0.01%).
-     */
-    function setOutputFeeRate(uint256 _outputFeeRate) external onlyOwner {
-        if (_outputFeeRate > MAX_FEE_RATE) revert InvalidFeeRate();
-        
-        uint256 oldFeeRate = outputFeeRate;
-        outputFeeRate = _outputFeeRate;
-        
-        emit OutputFeeRateUpdated(oldFeeRate, _outputFeeRate);
-    }
-
-    /**
-     * @dev Allows the owner to withdraw accumulated fees.
-     * @param recipient The address to receive the fees.
-     */
-    function withdrawFees(address recipient) external onlyOwner {
-        if (recipient == address(0)) revert ZeroAddress();
-        if (accumulatedFees == 0) revert NoFeesToWithdraw();
-        
-        uint256 feesToWithdraw = accumulatedFees;
-        accumulatedFees = 0;
-        
-        token.safeTransfer(recipient, feesToWithdraw);
-        
-        emit FeesWithdrawn(recipient, feesToWithdraw);
-    }
-
-    /**
-     * @dev Returns the current version of the contract.
-     */
-    function version() external pure returns (string memory) {
-        return "1.0.0";
+        emit Events.Unstake(msg.sender, shares, netAssets);
     }
 }
