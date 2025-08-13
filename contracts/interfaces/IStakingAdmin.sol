@@ -19,4 +19,14 @@ interface IStakingAdmin {
      * @param recipient The address to receive the fees.
      */
     function withdrawFees(address recipient) external;
+
+    /**
+     * @notice Pause stake and unstake operations.
+     */
+    function pause() external;
+
+    /**
+     * @notice Unpause stake and unstake operations.
+     */
+    function unpause() external;
 }

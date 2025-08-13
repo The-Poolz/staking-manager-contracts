@@ -41,6 +41,7 @@ contract StakingManager is
         __ERC20_init(name, symbol);
         __Ownable_init(owner);
         __ReentrancyGuard_init();
+        __Pausable_init();
         __UUPSUpgradeable_init();
 
         // Initialize immutable-like variables (stored in storage for upgradeable contracts)
@@ -58,7 +59,7 @@ contract StakingManager is
      * @dev Allows users to stake assets in the vault.
      * @param assets The amount of assets to stake.
      */
-    function stake(uint256 assets) external amountGreaterThanZero(assets) nonReentrant {
+    function stake(uint256 assets) external amountGreaterThanZero(assets) nonReentrant whenNotPaused {
         token.safeTransferFrom(msg.sender, address(this), assets);
         
         // Apply input fee and get net assets (fee accumulation handled internally)
@@ -82,7 +83,7 @@ contract StakingManager is
      */
     function unstake(
         uint256 shares
-    ) external amountGreaterThanZero(shares) hasEnoughShares(shares) nonReentrant {
+    ) external amountGreaterThanZero(shares) hasEnoughShares(shares) nonReentrant whenNotPaused {
         // Redeem shares for assets
         uint256 grossAssets = stakingVault.redeem(shares, address(this), address(this));
         
