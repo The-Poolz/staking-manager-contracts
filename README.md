@@ -129,7 +129,7 @@ These variables are optional for local development but required for network
 deployments and contract verification.
 
 ## UML diagram
-![classDiagram](https://github.com/user-attachments/assets/12e52237-8130-43d5-b77d-a2d60fd3ddf3)
+![classDiagram](uml.svg)
 
 ## Functions Overview
 
