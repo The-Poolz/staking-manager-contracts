@@ -69,6 +69,10 @@ describe("StakingManager", function () {
                 )
             ).to.be.revertedWithCustomError(stakingManager, "InvalidInitialization")
         })
+
+        it("Should return correct version", async function () {
+            expect(await stakingManager.version()).to.equal("1.0.0")
+        })
     })
 
     describe("Staking and Unstaking", function () {
