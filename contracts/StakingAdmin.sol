@@ -2,13 +2,14 @@
 pragma solidity ^0.8.29;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "./StakingProxy.sol";
 import "./StakingState.sol";
 import "./StakingModifiers.sol";
 import "./interfaces/IStakingAdmin.sol";
 import "./interfaces/Events.sol";
 
-abstract contract StakingAdmin is IStakingAdmin, StakingProxy, StakingState, StakingModifiers {
+abstract contract StakingAdmin is IStakingAdmin, StakingProxy, StakingState, StakingModifiers, PausableUpgradeable {
     using SafeERC20 for IERC20;
     /**
      * @dev Allows the owner to set the input fee rate for staking operations.
@@ -47,5 +48,19 @@ abstract contract StakingAdmin is IStakingAdmin, StakingProxy, StakingState, Sta
         token.safeTransfer(recipient, feesToWithdraw);
         
         emit Events.FeesWithdrawn(recipient, feesToWithdraw);
+    }
+
+    /**
+     * @dev Pauses stake and unstake operations. Can only be called by the owner.
+     */
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /**
+     * @dev Unpauses stake and unstake operations. Can only be called by the owner.
+     */
+    function unpause() external onlyOwner {
+        _unpause();
     }
 }
