@@ -16,4 +16,10 @@ interface Errors {
 
     /// @notice Error thrown when there are no fees to withdraw.
     error NoFeesToWithdraw();
+
+    /// @notice Error thrown when amount is invalid (zero).
+    error InvalidAmount();
+
+    /// @notice Error thrown when trying to withdraw more fee shares than available.
+    error InsufficientFeeShares();
 }

@@ -38,16 +38,29 @@ abstract contract StakingAdmin is IStakingAdmin, StakingProxy, StakingState, Sta
     }
 
     /**
-     * @dev Allows the owner to withdraw accumulated fees.
-     * @param recipient The address to receive the fees.
+     * @dev Allows the owner to withdraw staked fee shares by redeeming them for assets.
+     * @param recipient The address to receive the redeemed assets.
+     * @param shares The number of fee shares to redeem.
      */
-    function withdrawFees(address recipient) external onlyOwner notZeroAddress(recipient) validFee(accumulatedFees) {
-        uint256 feesToWithdraw = accumulatedFees;
-        accumulatedFees = 0;
+    function withdrawFeeShares(address recipient, uint256 shares) external onlyOwner notZeroAddress(recipient) amountGreaterThanZero(shares) {
+        if (shares > totalFeeShares) revert Errors.InsufficientFeeShares();
         
-        token.safeTransfer(recipient, feesToWithdraw);
+        // Redeem shares for assets
+        uint256 assets = stakingVault.redeem(shares, address(this), address(this));
+        // Update total fee shares
+        totalFeeShares -= shares;
+        // Transfer assets to recipient
+        token.safeTransfer(recipient, assets);
         
-        emit Events.FeesWithdrawn(recipient, feesToWithdraw);
+        emit Events.FeeSharesWithdrawn(recipient, shares, assets);
+    }
+
+    /**
+     * @dev Returns the total assets from staked fees.
+     * @return The total assets that can be redeemed from fee shares.
+     */
+    function totalFeeAssets() external view returns (uint256) {
+        return stakingVault.previewRedeem(totalFeeShares);
     }
 
     /**

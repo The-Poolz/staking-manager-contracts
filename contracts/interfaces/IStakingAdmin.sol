@@ -15,10 +15,17 @@ interface IStakingAdmin {
     function setOutputFeeRate(uint256 _outputFeeRate) external;
 
     /**
-     * @notice Withdraw accumulated fees.
-     * @param recipient The address to receive the fees.
+     * @notice Withdraw staked fee shares by redeeming them for assets.
+     * @param recipient The address to receive the redeemed assets.
+     * @param shares The number of fee shares to redeem.
      */
-    function withdrawFees(address recipient) external;
+    function withdrawFeeShares(address recipient, uint256 shares) external;
+
+    /**
+     * @notice Get the total assets from staked fees.
+     * @return The total assets that can be redeemed from fee shares.
+     */
+    function totalFeeAssets() external view returns (uint256);
 
     /**
      * @notice Pause stake and unstake operations.

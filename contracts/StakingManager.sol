@@ -61,20 +61,20 @@ contract StakingManager is
      */
     function stake(uint256 assets) external amountGreaterThanZero(assets) nonReentrant whenNotPaused {
         token.safeTransferFrom(msg.sender, address(this), assets);
-        
-        // Apply input fee and get net assets (fee accumulation handled internally)
-        uint256 netAssets = _applyInputFee(assets);
-        
-        // Approve the staking vault to spend the net assets
-        token.forceApprove(address(stakingVault), netAssets);
-        // Deposit net assets into the staking vault and receive shares
-        uint256 shares = stakingVault.deposit(netAssets, address(this));
-        // Reset the approval to zero to prevent re-entrancy attacks
-        token.forceApprove(address(stakingVault), 0);
 
-        // Mint this ERC20 token as proof of ownership
-        _mint(msg.sender, shares);
-        emit Events.Stake(msg.sender, assets, shares);
+        uint256 feeAmount = _calculateFeeAmount(assets, inputFeeRate);
+        uint256 totalShares = _depositIntoVault(assets);
+
+        (uint256 userShares, uint256 feeShares) = _splitShares(
+            totalShares,
+            assets,
+            feeAmount
+        );
+
+        _handleFeeShares(feeAmount, feeShares);
+        // Mint address(this) ERC20 token as proof of ownership
+        _mint(msg.sender, userShares);
+        emit Events.Stake(msg.sender, assets, userShares);
     }
 
     /**
@@ -86,9 +86,9 @@ contract StakingManager is
     ) external amountGreaterThanZero(shares) hasEnoughShares(shares) nonReentrant whenNotPaused {
         // Redeem shares for assets
         uint256 grossAssets = stakingVault.redeem(shares, address(this), address(this));
-        
-        // Apply output fee and get net assets (fee accumulation handled internally)
-        uint256 netAssets = _applyOutputFee(grossAssets);
+
+        (uint256 netAssets, uint256 feeAmount) = _applyOutputFee(grossAssets);
+        _handleOutputFee(feeAmount);
         
         // Transfer net assets to user
         token.safeTransfer(msg.sender, netAssets);
