@@ -2,9 +2,12 @@
 pragma solidity ^0.8.29;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import "./interfaces/Events.sol";
 
 abstract contract StakingState {
+    using SafeERC20 for IERC20;
     // The vault where assets are staked (stored in storage for upgradeable contracts)
     IERC4626 public stakingVault;
 
@@ -22,8 +25,8 @@ abstract contract StakingState {
     // Maximum fee rate (10% = 1000 basis points)
     uint256 public constant MAX_FEE_RATE = 1000;
 
-    // Accumulated fees available for withdrawal
-    uint256 public accumulatedFees;
+    // Total shares minted from staked fees
+    uint256 public totalFeeShares;
 
     /**
      * @dev Returns the total assets staked by a user.
@@ -56,52 +59,35 @@ abstract contract StakingState {
     ) internal pure returns (uint256 feeAmount) {
         feeAmount = (assets * feeRate) / 10000;
     }
-
-    /**
-     * @dev Calculates the net assets after fee deduction.
-     * @param assets The amount of assets to calculate the fee for.
-     * @param feeAmount The fee amount to be deducted.
-     * @return netAssets The net assets after fee deduction.
-     *
-     */
-    function _calculateFeeAssets(
-        uint256 assets,
-        uint256 feeAmount
-    ) internal pure returns (uint256 netAssets) {
-        netAssets = assets - feeAmount;
+    
+    function _depositIntoVault(
+        uint256 assets
+    ) internal returns (uint256 totalShares) {
+        token.forceApprove(address(stakingVault), assets);
+        totalShares = stakingVault.deposit(assets, address(this));
+        token.forceApprove(address(stakingVault), 0);
     }
 
-    /**
-     * @dev Applies input fee on staking, accumulates fees, and returns net assets.
-     * @param assets The amount of assets to apply input fee to.
-     * @return netAssets The net assets after fee deduction.
-     */
-    function _applyInputFee(
-        uint256 assets
-    ) internal returns (uint256 netAssets) {
-        uint256 feeAmount = _calculateFeeAmount(assets, inputFeeRate);
-        netAssets = _calculateFeeAssets(assets, feeAmount);
+    function _splitShares(
+        uint256 totalShares,
+        uint256 assets,
+        uint256 feeAmount
+    ) internal pure returns (uint256 userShares, uint256 feeShares) {
+        feeShares = (totalShares * feeAmount) / assets;
+        userShares = totalShares - feeShares;
+    }
 
+    function _handleInputFeeShares(uint256 feeAmount, uint256 feeShares) internal {
         if (feeAmount > 0) {
-            accumulatedFees += feeAmount;
-            emit Events.InputFeeCollected(feeAmount);
+            totalFeeShares += feeShares;
+            emit Events.InputFeeCollected(feeAmount, feeShares);
         }
     }
 
-    /**
-     * @dev Applies output fee on unstaking, accumulates fees, and returns net assets.
-     * @param assets The amount of assets to apply output fee to.
-     * @return netAssets The net assets after fee deduction.
-     */
-    function _applyOutputFee(
-        uint256 assets
-    ) internal returns (uint256 netAssets) {
-        uint256 feeAmount = _calculateFeeAmount(assets, outputFeeRate);
-        netAssets = _calculateFeeAssets(assets, feeAmount);
-
+    function _handleOutputFeeShares(uint256 feeAmount, uint256 feeShares) internal {
         if (feeAmount > 0) {
-            accumulatedFees += feeAmount;
-            emit Events.OutputFeeCollected(feeAmount);
+            totalFeeShares += feeShares;
+            emit Events.OutputFeeCollected(feeAmount, feeShares);
         }
     }
 

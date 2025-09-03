@@ -14,10 +14,10 @@ interface Events {
     event StakingVaultSet(IERC4626 stakingVault, IERC20 token);
 
     /// @notice Emitted when fees are collected during staking.
-    event InputFeeCollected(uint256 feeAmount);
+    event InputFeeCollected(uint256 feeAmount, uint256 feeShares);
 
     /// @notice Emitted when fees are collected during unstaking.
-    event OutputFeeCollected(uint256 feeAmount);
+    event OutputFeeCollected(uint256 feeAmount, uint256 feeShares);
 
     /// @notice Emitted when the input fee rate is updated.
     event InputFeeRateUpdated(uint256 oldFeeRate, uint256 newFeeRate);
@@ -27,4 +27,7 @@ interface Events {
 
     /// @notice Emitted when fees are withdrawn.
     event FeesWithdrawn(address indexed recipient, uint256 amount);
+
+    /// @notice Emitted when fee shares are withdrawn and redeemed for assets.
+    event FeeSharesWithdrawn(address indexed recipient, uint256 shares, uint256 assets);
 }

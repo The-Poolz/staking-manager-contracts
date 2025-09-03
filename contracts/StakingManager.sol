@@ -61,20 +61,16 @@ contract StakingManager is
      */
     function stake(uint256 assets) external amountGreaterThanZero(assets) nonReentrant whenNotPaused {
         token.safeTransferFrom(msg.sender, address(this), assets);
-        
-        // Apply input fee and get net assets (fee accumulation handled internally)
-        uint256 netAssets = _applyInputFee(assets);
-        
-        // Approve the staking vault to spend the net assets
-        token.forceApprove(address(stakingVault), netAssets);
-        // Deposit net assets into the staking vault and receive shares
-        uint256 shares = stakingVault.deposit(netAssets, address(this));
-        // Reset the approval to zero to prevent re-entrancy attacks
-        token.forceApprove(address(stakingVault), 0);
 
-        // Mint this ERC20 token as proof of ownership
-        _mint(msg.sender, shares);
-        emit Events.Stake(msg.sender, assets, shares);
+        uint256 feeAmount = _calculateFeeAmount(assets, inputFeeRate);
+        uint256 totalShares = _depositIntoVault(assets);
+
+        (uint256 userShares, uint256 feeShares) = _splitShares(totalShares, assets, feeAmount);
+
+        _handleInputFeeShares(feeAmount, feeShares);
+        // Mint address(this) ERC20 token as proof of ownership
+        _mint(msg.sender, userShares);
+        emit Events.Stake(msg.sender, assets, userShares);
     }
 
     /**
@@ -84,17 +80,22 @@ contract StakingManager is
     function unstake(
         uint256 shares
     ) external amountGreaterThanZero(shares) hasEnoughShares(shares) nonReentrant whenNotPaused {
-        // Redeem shares for assets
-        uint256 grossAssets = stakingVault.redeem(shares, address(this), address(this));
+        // Preview the total assets we would get from redeeming all shares
+        uint256 grossAssets = stakingVault.previewRedeem(shares);
         
-        // Apply output fee and get net assets (fee accumulation handled internally)
-        uint256 netAssets = _applyOutputFee(grossAssets);
-        
+        // Calculate fee amount
+        uint256 feeAmount = _calculateFeeAmount(grossAssets, outputFeeRate);
+        (uint256 userShares, uint256 feeShares) = _splitShares(shares, grossAssets, feeAmount);
+
+        _handleOutputFeeShares(feeAmount, feeShares);
+        // Only redeem the user shares
+        uint256 actualAssets = stakingVault.redeem(userShares, address(this), address(this));
+
         // Transfer net assets to user
-        token.safeTransfer(msg.sender, netAssets);
+        token.safeTransfer(msg.sender, actualAssets);
         
         // Burn the ERC20 staking token
-        _burn(msg.sender, shares);
-        emit Events.Unstake(msg.sender, shares, netAssets);
+        _burn(msg.sender, userShares);
+        emit Events.Unstake(msg.sender, userShares, actualAssets);
     }
 }
