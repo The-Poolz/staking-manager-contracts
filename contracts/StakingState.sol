@@ -59,20 +59,6 @@ abstract contract StakingState {
     ) internal pure returns (uint256 feeAmount) {
         feeAmount = (assets * feeRate) / 10000;
     }
-
-    /**
-     * @dev Calculates the net assets after fee deduction.
-     * @param assets The amount of assets to calculate the fee for.
-     * @param feeAmount The fee amount to be deducted.
-     * @return netAssets The net assets after fee deduction.
-     *
-     */
-    function _calculateFeeAssets(
-        uint256 assets,
-        uint256 feeAmount
-    ) internal pure returns (uint256 netAssets) {
-        netAssets = assets - feeAmount;
-    }
     
     function _depositIntoVault(
         uint256 assets
