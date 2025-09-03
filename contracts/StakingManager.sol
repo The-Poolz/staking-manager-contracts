@@ -67,7 +67,7 @@ contract StakingManager is
 
         (uint256 userShares, uint256 feeShares) = _splitShares(totalShares, assets, feeAmount);
 
-        _handleFeeShares(feeAmount, feeShares);
+        _handleInputFeeShares(feeAmount, feeShares);
         // Mint address(this) ERC20 token as proof of ownership
         _mint(msg.sender, userShares);
         emit Events.Stake(msg.sender, assets, userShares);
@@ -87,11 +87,7 @@ contract StakingManager is
         uint256 feeAmount = _calculateFeeAmount(grossAssets, outputFeeRate);
         (uint256 userShares, uint256 feeShares) = _splitShares(shares, grossAssets, feeAmount);
 
-        // Track fee shares and emit events
-        if (feeAmount > 0) {
-            totalFeeShares += feeShares;
-            emit Events.OutputFeeCollected(feeAmount, feeShares);
-        }
+        _handleOutputFeeShares(feeAmount, feeShares);
         // Only redeem the user shares
         uint256 actualAssets = stakingVault.redeem(userShares, address(this), address(this));
 

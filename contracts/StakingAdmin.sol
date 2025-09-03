@@ -7,7 +7,7 @@ import "./StakingProxy.sol";
 import "./StakingState.sol";
 import "./StakingModifiers.sol";
 import "./interfaces/IStakingAdmin.sol";
-import "./interfaces/Events.sol";
+import "./interfaces/Errors.sol";
 
 abstract contract StakingAdmin is IStakingAdmin, StakingProxy, StakingState, StakingModifiers, PausableUpgradeable {
     using SafeERC20 for IERC20;

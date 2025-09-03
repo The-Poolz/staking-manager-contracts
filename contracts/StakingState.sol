@@ -77,10 +77,17 @@ abstract contract StakingState {
         userShares = totalShares - feeShares;
     }
 
-    function _handleFeeShares(uint256 feeAmount, uint256 feeShares) internal {
+    function _handleInputFeeShares(uint256 feeAmount, uint256 feeShares) internal {
         if (feeAmount > 0) {
             totalFeeShares += feeShares;
             emit Events.InputFeeCollected(feeAmount, feeShares);
+        }
+    }
+
+    function _handleOutputFeeShares(uint256 feeAmount, uint256 feeShares) internal {
+        if (feeAmount > 0) {
+            totalFeeShares += feeShares;
+            emit Events.OutputFeeCollected(feeAmount, feeShares);
         }
     }
 
