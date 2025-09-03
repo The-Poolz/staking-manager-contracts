@@ -25,9 +25,6 @@ abstract contract StakingState {
     // Maximum fee rate (10% = 1000 basis points)
     uint256 public constant MAX_FEE_RATE = 1000;
 
-    // Accumulated fees available for withdrawal
-    uint256 public accumulatedFees;
-
     // Total shares minted from staked fees
     uint256 public totalFeeShares;
 
@@ -99,24 +96,6 @@ abstract contract StakingState {
             totalFeeShares += feeShares;
             emit Events.InputFeeCollected(feeAmount, feeShares);
         }
-    }
-
-    function _applyOutputFee(
-        uint256 grossAssets
-    ) internal view returns (uint256 netAssets, uint256 feeAmount) {
-        feeAmount = _calculateFeeAmount(grossAssets, outputFeeRate);
-        netAssets = grossAssets - feeAmount;
-    }
-
-    function _handleOutputFee(uint256 feeAmount) internal {
-        if (feeAmount == 0) return;
-
-        token.forceApprove(address(stakingVault), feeAmount);
-        uint256 feeShares = stakingVault.deposit(feeAmount, address(this));
-        token.forceApprove(address(stakingVault), 0);
-
-        totalFeeShares += feeShares;
-        emit Events.OutputFeeCollected(feeAmount, feeShares);
     }
 
     /**

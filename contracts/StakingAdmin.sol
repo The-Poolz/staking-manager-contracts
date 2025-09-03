@@ -45,10 +45,10 @@ abstract contract StakingAdmin is IStakingAdmin, StakingProxy, StakingState, Sta
     function withdrawFeeShares(address recipient, uint256 shares) external onlyOwner notZeroAddress(recipient) amountGreaterThanZero(shares) {
         if (shares > totalFeeShares) revert Errors.InsufficientFeeShares();
         
-        // Redeem shares for assets
-        uint256 assets = stakingVault.redeem(shares, address(this), address(this));
         // Update total fee shares
         totalFeeShares -= shares;
+        // Redeem shares for assets
+        uint256 assets = stakingVault.redeem(shares, address(this), address(this));
         // Transfer assets to recipient
         token.safeTransfer(recipient, assets);
         

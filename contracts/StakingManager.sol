@@ -65,11 +65,7 @@ contract StakingManager is
         uint256 feeAmount = _calculateFeeAmount(assets, inputFeeRate);
         uint256 totalShares = _depositIntoVault(assets);
 
-        (uint256 userShares, uint256 feeShares) = _splitShares(
-            totalShares,
-            assets,
-            feeAmount
-        );
+        (uint256 userShares, uint256 feeShares) = _splitShares(totalShares, assets, feeAmount);
 
         _handleFeeShares(feeAmount, feeShares);
         // Mint address(this) ERC20 token as proof of ownership
@@ -84,17 +80,26 @@ contract StakingManager is
     function unstake(
         uint256 shares
     ) external amountGreaterThanZero(shares) hasEnoughShares(shares) nonReentrant whenNotPaused {
-        // Redeem shares for assets
-        uint256 grossAssets = stakingVault.redeem(shares, address(this), address(this));
-
-        (uint256 netAssets, uint256 feeAmount) = _applyOutputFee(grossAssets);
-        _handleOutputFee(feeAmount);
+        // Preview the total assets we would get from redeeming all shares
+        uint256 grossAssets = stakingVault.previewRedeem(shares);
         
+        // Calculate fee amount
+        uint256 feeAmount = _calculateFeeAmount(grossAssets, outputFeeRate);
+        (uint256 userShares, uint256 feeShares) = _splitShares(shares, grossAssets, feeAmount);
+
+        // Track fee shares and emit events
+        if (feeAmount > 0) {
+            totalFeeShares += feeShares;
+            emit Events.OutputFeeCollected(feeAmount, feeShares);
+        }
+        // Only redeem the user shares
+        uint256 actualAssets = stakingVault.redeem(userShares, address(this), address(this));
+
         // Transfer net assets to user
-        token.safeTransfer(msg.sender, netAssets);
+        token.safeTransfer(msg.sender, actualAssets);
         
         // Burn the ERC20 staking token
         _burn(msg.sender, shares);
-        emit Events.Unstake(msg.sender, shares, netAssets);
+        emit Events.Unstake(msg.sender, shares, actualAssets);
     }
 }
