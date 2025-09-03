@@ -95,7 +95,7 @@ contract StakingManager is
         token.safeTransfer(msg.sender, actualAssets);
         
         // Burn the ERC20 staking token
-        _burn(msg.sender, shares);
-        emit Events.Unstake(msg.sender, shares, actualAssets);
+        _burn(msg.sender, userShares);
+        emit Events.Unstake(msg.sender, userShares, actualAssets);
     }
 }
