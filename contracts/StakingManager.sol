@@ -51,6 +51,9 @@ contract StakingManager is
         // Initialize mutable state with 0% fees
         inputFeeRate = 0;
         outputFeeRate = 0;
+        
+        // Initialize conversion factor to 1:1 ratio
+        vaultShareConversionFactor = 1e18;
 
         emit Events.StakingVaultSet(_stakingVault, token);
     }
@@ -63,39 +66,47 @@ contract StakingManager is
         token.safeTransferFrom(msg.sender, address(this), assets);
 
         uint256 feeAmount = _calculateFeeAmount(assets, inputFeeRate);
-        uint256 totalShares = _depositIntoVault(assets);
+        uint256 totalVaultShares = _depositIntoVault(assets);
 
-        (uint256 userShares, uint256 feeShares) = _splitShares(totalShares, assets, feeAmount);
+        (uint256 userVaultShares, uint256 feeVaultShares) = _splitShares(totalVaultShares, assets, feeAmount);
 
-        _handleInputFeeShares(feeAmount, feeShares);
-        // Mint address(this) ERC20 token as proof of ownership
-        _mint(msg.sender, userShares);
-        emit Events.Stake(msg.sender, assets, userShares);
+        _handleInputFeeShares(feeAmount, feeVaultShares);
+        
+        // Convert vault shares to staking tokens using the conversion factor
+        // This ensures consistent staking token value regardless of vault exchange rate
+        uint256 userStakingTokens = (userVaultShares * 1e18) / vaultShareConversionFactor;
+        
+        // Mint staking tokens as proof of ownership
+        _mint(msg.sender, userStakingTokens);
+        emit Events.Stake(msg.sender, assets, userStakingTokens);
     }
 
     /**
      * @dev Allows users to unstake their shares and receive the underlying assets.
-     * @param shares The number of shares to unstake.
+     * @param stakingTokens The number of staking tokens to unstake.
      */
     function unstake(
-        uint256 shares
-    ) external amountGreaterThanZero(shares) hasEnoughShares(shares) nonReentrant whenNotPaused {
-        // Preview the total assets we would get from redeeming all shares
-        uint256 grossAssets = stakingVault.previewRedeem(shares);
+        uint256 stakingTokens
+    ) external amountGreaterThanZero(stakingTokens) hasEnoughShares(stakingTokens) nonReentrant whenNotPaused {
+        // Convert staking tokens to vault shares using the conversion factor
+        uint256 vaultSharesToRedeem = (stakingTokens * vaultShareConversionFactor) / 1e18;
+        
+        // Preview the total assets we would get from redeeming vault shares
+        uint256 grossAssets = stakingVault.previewRedeem(vaultSharesToRedeem);
         
         // Calculate fee amount
         uint256 feeAmount = _calculateFeeAmount(grossAssets, outputFeeRate);
-        (uint256 userShares, uint256 feeShares) = _splitShares(shares, grossAssets, feeAmount);
+        (uint256 userVaultShares, uint256 feeVaultShares) = _splitShares(vaultSharesToRedeem, grossAssets, feeAmount);
 
-        _handleOutputFeeShares(feeAmount, feeShares);
-        // Only redeem the user shares
-        uint256 actualAssets = stakingVault.redeem(userShares, address(this), address(this));
+        _handleOutputFeeShares(feeAmount, feeVaultShares);
+        // Only redeem the user vault shares
+        uint256 actualAssets = stakingVault.redeem(userVaultShares, address(this), address(this));
 
         // Transfer net assets to user
         token.safeTransfer(msg.sender, actualAssets);
         
-        // Burn the ERC20 staking token
-        _burn(msg.sender, userShares);
-        emit Events.Unstake(msg.sender, userShares, actualAssets);
+        // Burn the ERC20 staking tokens
+        _burn(msg.sender, stakingTokens);
+        emit Events.Unstake(msg.sender, stakingTokens, actualAssets);
     }
 }

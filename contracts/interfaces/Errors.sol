@@ -19,4 +19,13 @@ interface Errors {
 
     /// @notice Error thrown when trying to withdraw more fee shares than available.
     error InsufficientFeeShares();
+
+    /// @notice Error thrown when the new vault has the same asset as the current vault.
+    error SameVaultAsset();
+
+    /// @notice Error thrown when the new vault has a different asset than the current vault.
+    error DifferentVaultAsset();
+
+    /// @notice Error thrown when trying to migrate with no assets in the current vault.
+    error NoAssetsToMigrate();
 }

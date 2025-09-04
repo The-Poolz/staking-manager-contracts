@@ -76,4 +76,105 @@ abstract contract StakingAdmin is IStakingAdmin, StakingProxy, StakingState, Sta
     function unpause() external onlyOwner {
         _unpause();
     }
+
+    /**
+     * @dev Migrates all staked assets from the current vault to a new vault.
+     * This function handles the complexity of different exchange rates between vaults.
+     * @param newVault The new IERC4626 vault to migrate to.
+     */
+    function migrateVault(IERC4626 newVault) external onlyOwner notZeroAddress(address(newVault)) {
+        // Validate that the new vault uses the same asset
+        if (newVault.asset() != stakingVault.asset()) revert Errors.DifferentVaultAsset();
+        if (address(newVault) == address(stakingVault)) revert Errors.SameVaultAsset();
+
+        // Get current vault balances
+        uint256 totalShares = stakingVault.balanceOf(address(this));
+        if (totalShares == 0) revert Errors.NoAssetsToMigrate();
+
+        IERC4626 oldVault = stakingVault;
+        
+        emit Events.VaultMigrationInitiated(oldVault, newVault);
+
+        // Redeem all shares from the old vault
+        uint256 totalAssetsRedeemed = oldVault.redeem(totalShares, address(this), address(this));
+        
+        // Approve and deposit all assets into the new vault
+        token.forceApprove(address(newVault), totalAssetsRedeemed);
+        uint256 newSharesReceived = newVault.deposit(totalAssetsRedeemed, address(this));
+        token.forceApprove(address(newVault), 0);
+
+        // Calculate exchange rate impact
+        uint256 newTotalAssets = newVault.previewRedeem(newSharesReceived);
+        uint256 exchangeRateImpact = _calculateExchangeRateImpact(totalAssetsRedeemed, newTotalAssets);
+
+        // Update the vault reference
+        stakingVault = newVault;
+
+        // Critical: Update the conversion factor to maintain user token value consistency
+        // The new conversion factor ensures that staking tokens maintain their asset value
+        // even though the underlying vault shares have changed
+        uint256 oldConversionFactor = vaultShareConversionFactor;
+        vaultShareConversionFactor = (vaultShareConversionFactor * newSharesReceived) / totalShares;
+
+        // Adjust fee shares proportionally to maintain fee accounting accuracy
+        totalFeeShares = (totalFeeShares * newSharesReceived) / totalShares;
+
+        emit Events.ConversionFactorUpdated(oldConversionFactor, vaultShareConversionFactor);
+
+        emit Events.VaultMigrationCompleted(
+            oldVault,
+            newVault,
+            totalAssetsRedeemed,
+            newSharesReceived,
+            exchangeRateImpact
+        );
+        emit Events.StakingVaultSet(newVault, token);
+    }
+
+    /**
+     * @dev Calculates the exchange rate impact during vault migration.
+     * @param assetsBefore Total assets before migration.
+     * @param assetsAfter Total assets after migration.
+     * @return impact The impact in basis points (positive = gain, negative = loss).
+     */
+    function _calculateExchangeRateImpact(
+        uint256 assetsBefore,
+        uint256 assetsAfter
+    ) internal pure returns (uint256 impact) {
+        if (assetsBefore == 0) return 0;
+        
+        if (assetsAfter >= assetsBefore) {
+            // Gain
+            impact = ((assetsAfter - assetsBefore) * 10000) / assetsBefore;
+        } else {
+            // Loss (represented as a very large number to indicate negative)
+            impact = ((assetsBefore - assetsAfter) * 10000) / assetsBefore;
+        }
+    }
+
+    /**
+     * @dev Returns migration information for the current vault state.
+     * @param newVault The potential new vault to migrate to.
+     * @return currentAssets Current total assets in the vault.
+     * @return currentShares Current total shares in the vault.
+     * @return projectedAssets Projected assets after migration.
+     * @return projectedShares Projected shares after migration.
+     * @return exchangeRateImpact Estimated exchange rate impact.
+     */
+    function getMigrationInfo(IERC4626 newVault) external view returns (
+        uint256 currentAssets,
+        uint256 currentShares,
+        uint256 projectedAssets,
+        uint256 projectedShares,
+        uint256 exchangeRateImpact
+    ) {
+        currentShares = stakingVault.balanceOf(address(this));
+        currentAssets = stakingVault.previewRedeem(currentShares);
+        
+        if (currentAssets > 0) {
+            projectedShares = newVault.previewDeposit(currentAssets);
+            projectedAssets = newVault.previewRedeem(projectedShares);
+            exchangeRateImpact = _calculateExchangeRateImpact(currentAssets, projectedAssets);
+        }
+    }
 }

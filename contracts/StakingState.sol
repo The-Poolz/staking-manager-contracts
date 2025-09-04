@@ -28,13 +28,21 @@ abstract contract StakingState {
     // Total shares minted from staked fees
     uint256 public totalFeeShares;
 
+    // Conversion factor to maintain user token value consistency after vault migrations
+    // This is the ratio of (new vault shares / first vault shares) * 1e18 for precision
+    // Default value is 1e18 (1:1 ratio), adjusted during vault migrations
+    uint256 public vaultShareConversionFactor;
+
     /**
      * @dev Returns the total assets staked by a user.
      * @param user The address of the user.
      * @return The total assets staked by the user.
      */
     function totalUserAssets(address user) external view returns (uint256) {
-        return stakingVault.previewRedeem(IERC20(address(this)).balanceOf(user));
+        uint256 userTokens = IERC20(address(this)).balanceOf(user);
+        // Apply conversion factor to get the correct vault shares for this user
+        uint256 userVaultShares = (userTokens * vaultShareConversionFactor) / 1e18;
+        return stakingVault.previewRedeem(userVaultShares);
     }
 
     /**
@@ -44,7 +52,10 @@ abstract contract StakingState {
      * @return The total assets in the vault.
      */
     function totalAssets() external view returns (uint256) {
-        return stakingVault.convertToAssets(stakingVault.balanceOf(address(this)));
+        uint256 totalStakingTokens = IERC20(address(this)).totalSupply();
+        // Apply conversion factor to get the correct vault shares
+        uint256 totalVaultShares = (totalStakingTokens * vaultShareConversionFactor) / 1e18;
+        return stakingVault.convertToAssets(totalVaultShares);
     }
 
     /**
