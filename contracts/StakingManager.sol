@@ -1,23 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC4626Upgradeable.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "./interfaces/IMorphoVault.sol";
 import "./StakingAdmin.sol";
-import "./interfaces/IStakingManager.sol";
 
 /**
  * @title StakingManager
  * @dev Upgradeable staking contract that also acts as an ERC20 token representing staked shares.
  */
-contract StakingManager is
-    IStakingManager,
-    ERC20Upgradeable,
-    StakingAdmin,
-    ReentrancyGuardUpgradeable
-{
+contract StakingManager is StakingAdmin, ReentrancyGuardUpgradeable, ERC4626Upgradeable {
     using SafeERC20 for IERC20;
+    using Math for uint256;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -32,13 +29,14 @@ contract StakingManager is
      * @param owner The owner of the contract.
      */
     function initialize(
-        IERC4626 _stakingVault,
+        IMorphoVault _stakingVault,
         string memory name,
         string memory symbol,
         address owner
     ) public initializer notZeroAddress(address(_stakingVault)) notZeroAddress(owner) {
         // Initialize inherited contracts
         __ERC20_init(name, symbol);
+        __ERC4626_init(IERC20(_stakingVault.asset()));
         __Ownable_init(owner);
         __ReentrancyGuard_init();
         __Pausable_init();
@@ -47,6 +45,8 @@ contract StakingManager is
         // Initialize immutable-like variables (stored in storage for upgradeable contracts)
         stakingVault = _stakingVault;
         token = IERC20(_stakingVault.asset());
+
+        DECIMALS_OFFSET = _stakingVault.DECIMALS_OFFSET();
         
         // Initialize mutable state with 0% fees
         inputFeeRate = 0;
@@ -55,31 +55,34 @@ contract StakingManager is
         emit Events.StakingVaultSet(_stakingVault, token);
     }
 
+    function _decimalsOffset() internal view override returns (uint8) {
+        return DECIMALS_OFFSET;
+    }
+
     /**
-     * @dev Allows users to stake assets in the vault.
-     * @param assets The amount of assets to stake.
+     * @dev Override totalAssets to resolve conflict and implement ERC4626 logic
+     * Returns the total amount of underlying assets held by the vault
      */
-    function stake(uint256 assets) external amountGreaterThanZero(assets) nonReentrant whenNotPaused {
+    function totalAssets() public view override(ERC4626Upgradeable, StakingState) returns (uint256) {
+        // Return total assets from the underlying staking vault
+        return stakingVault.convertToAssets(stakingVault.balanceOf(address(this)));
+    }
+
+    // stake assets and receive shares
+    function deposit(uint256 assets, address receiver) public override returns (uint256 shares) {
         token.safeTransferFrom(msg.sender, address(this), assets);
 
         uint256 feeAmount = _calculateFeeAmount(assets, inputFeeRate);
         uint256 totalShares = _depositIntoVault(assets);
-
-        (uint256 userShares, uint256 feeShares) = _splitShares(totalShares, assets, feeAmount);
+        uint256 feeShares;
+        (shares, feeShares) = _splitShares(totalShares, assets, feeAmount);
 
         _handleInputFeeShares(feeAmount, feeShares);
-        // Mint address(this) ERC20 token as proof of ownership
-        _mint(msg.sender, userShares);
-        emit Events.Stake(msg.sender, assets, userShares);
+
+        _deposit(_msgSender(), receiver, assets, shares);
     }
 
-    /**
-     * @dev Allows users to unstake their shares and receive the underlying assets.
-     * @param shares The number of shares to unstake.
-     */
-    function unstake(
-        uint256 shares
-    ) external amountGreaterThanZero(shares) hasEnoughShares(shares) nonReentrant whenNotPaused {
+    function withdraw(uint256 assets, address receiver, address owner) public override returns (uint256 shares) {
         // Preview the total assets we would get from redeeming all shares
         uint256 grossAssets = stakingVault.previewRedeem(shares);
         
@@ -93,9 +96,7 @@ contract StakingManager is
 
         // Transfer net assets to user
         token.safeTransfer(msg.sender, actualAssets);
-        
-        // Burn the ERC20 staking token
-        _burn(msg.sender, userShares);
-        emit Events.Unstake(msg.sender, userShares, actualAssets);
+
+        _withdraw(_msgSender(), receiver, owner, assets, shares);
     }
 }

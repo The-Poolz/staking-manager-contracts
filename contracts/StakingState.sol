@@ -28,6 +28,9 @@ abstract contract StakingState {
     // Total shares minted from staked fees
     uint256 public totalFeeShares;
 
+    /// @dev Offset to convert token decimals to 18 decimals for share calculations
+    uint8 public DECIMALS_OFFSET;
+
     /**
      * @dev Returns the total assets staked by a user.
      * @param user The address of the user.
@@ -43,7 +46,7 @@ abstract contract StakingState {
      * It is calculated by converting the total shares of the contract into assets.
      * @return The total assets in the vault.
      */
-    function totalAssets() external view returns (uint256) {
+    function totalAssets() external view virtual returns (uint256) {
         return stakingVault.convertToAssets(stakingVault.balanceOf(address(this)));
     }
 
