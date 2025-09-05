@@ -92,16 +92,10 @@ abstract contract StakingAdmin is IStakingAdmin, StakingProxy, StakingState, Sta
         if (totalShares == 0) revert Errors.NoAssetsToMigrate();
 
         IERC4626 oldVault = stakingVault;
-        
-        emit Events.VaultMigrationInitiated(oldVault, newVault);
-
         // Redeem all shares from the old vault
         uint256 totalAssetsRedeemed = oldVault.redeem(totalShares, address(this), address(this));
-        
         // Approve and deposit all assets into the new vault
-        token.forceApprove(address(newVault), totalAssetsRedeemed);
-        uint256 newSharesReceived = newVault.deposit(totalAssetsRedeemed, address(this));
-        token.forceApprove(address(newVault), 0);
+        uint256 newSharesReceived = _depositIntoVault(totalAssetsRedeemed);
 
         // Calculate exchange rate impact
         uint256 newTotalAssets = newVault.previewRedeem(newSharesReceived);
@@ -119,16 +113,15 @@ abstract contract StakingAdmin is IStakingAdmin, StakingProxy, StakingState, Sta
         // Adjust fee shares proportionally to maintain fee accounting accuracy
         totalFeeShares = (totalFeeShares * newSharesReceived) / totalShares;
 
-        emit Events.ConversionFactorUpdated(oldConversionFactor, vaultShareConversionFactor);
-
         emit Events.VaultMigrationCompleted(
             oldVault,
             newVault,
             totalAssetsRedeemed,
             newSharesReceived,
-            exchangeRateImpact
+            exchangeRateImpact,
+            oldConversionFactor,
+            vaultShareConversionFactor
         );
-        emit Events.StakingVaultSet(newVault, token);
     }
 
     /**

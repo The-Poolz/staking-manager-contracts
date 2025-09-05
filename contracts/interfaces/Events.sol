@@ -31,18 +31,14 @@ interface Events {
     /// @notice Emitted when fee shares are withdrawn and redeemed for assets.
     event FeeSharesWithdrawn(address indexed recipient, uint256 shares, uint256 assets);
 
-    /// @notice Emitted when vault migration is initiated.
-    event VaultMigrationInitiated(IERC4626 oldVault, IERC4626 newVault);
-
     /// @notice Emitted when vault migration is completed.
     event VaultMigrationCompleted(
         IERC4626 oldVault, 
         IERC4626 newVault, 
         uint256 totalAssetsRedeemed, 
         uint256 newSharesReceived,
-        uint256 exchangeRateImpact
+        uint256 exchangeRateImpact,
+        uint256 oldFactor,
+        uint256 newFactor
     );
-
-    /// @notice Emitted when vault share conversion factor is updated.
-    event ConversionFactorUpdated(uint256 oldFactor, uint256 newFactor);
 }
