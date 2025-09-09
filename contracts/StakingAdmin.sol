@@ -2,14 +2,11 @@
 pragma solidity ^0.8.29;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "./StakingProxy.sol";
-import "./StakingState.sol";
-import "./StakingModifiers.sol";
 import "./interfaces/IStakingAdmin.sol";
 import "./interfaces/Errors.sol";
 
-abstract contract StakingAdmin is IStakingAdmin, StakingProxy, StakingState, StakingModifiers, PausableUpgradeable {
+abstract contract StakingAdmin is IStakingAdmin, StakingProxy {
     using SafeERC20 for IERC20;
     /**
      * @dev Allows the owner to set the input fee rate for staking operations.
