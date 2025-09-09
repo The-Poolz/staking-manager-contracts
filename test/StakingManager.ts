@@ -12,7 +12,9 @@ describe("StakingManager", function () {
     let user2: HardhatEthersSigner
 
     const INITIAL_BALANCE = ethers.parseEther("10000")
-    const STAKE_AMOUNT = ethers.parseEther("1000")
+    const STAKE_AMOUNT = ethers.parseUnits("1000", 6) // Assuming token has 6 decimals
+    // ERC4626 shares use 18 decimals (6 + 12 offset), so we need to convert
+    const EXPECTED_SHARES = ethers.parseUnits("1000", 18) // 1000 tokens = 1000 * 10^18 shares
 
     beforeEach(async function () {
         [owner, user1, user2] = await ethers.getSigners()
@@ -78,26 +80,25 @@ describe("StakingManager", function () {
     describe("Staking and Unstaking", function () {
         it("Should allow staking with no fees", async function () {
             await token.connect(user1).approve(await stakingManager.getAddress(), STAKE_AMOUNT)
-            
-            await expect(stakingManager.connect(user1).stake(STAKE_AMOUNT))
-                .to.emit(stakingManager, "Stake")
-                .withArgs(user1.address, STAKE_AMOUNT, STAKE_AMOUNT)
 
-            expect(await stakingManager.balanceOf(user1.address)).to.equal(STAKE_AMOUNT)
-            expect(await stakingManager.totalUserAssets(user1.address)).to.equal(STAKE_AMOUNT)
+            await expect(stakingManager.connect(user1).deposit(STAKE_AMOUNT, user1.address))
+                .to.emit(stakingManager, "Deposit")
+                .withArgs(user1.address, user1.address, STAKE_AMOUNT, EXPECTED_SHARES)
+                // Deposit(caller, receiver, assets, shares)
+
+            expect(await stakingManager.balanceOf(user1.address)).to.equal(EXPECTED_SHARES)
+            expect(await stakingManager.totalUserAssets(user1.address)).to.equal(EXPECTED_SHARES)
         })
 
         it("Should allow unstaking with no fees", async function () {
             // First stake
             await token.connect(user1).approve(await stakingManager.getAddress(), STAKE_AMOUNT)
-            await stakingManager.connect(user1).stake(STAKE_AMOUNT)
+            await stakingManager.connect(user1).deposit(STAKE_AMOUNT, user1.address)
 
-            // Then unstake
-            const shares = await stakingManager.balanceOf(user1.address)
-            await expect(stakingManager.connect(user1).unstake(shares))
-                .to.emit(stakingManager, "Unstake")
-                .withArgs(user1.address, shares, STAKE_AMOUNT)
-
+            await expect(stakingManager.connect(user1).withdraw(STAKE_AMOUNT, user1.address, user1.address))
+                .to.emit(stakingManager, "Withdraw")
+                .withArgs(user1.address, user1.address, user1.address, STAKE_AMOUNT, EXPECTED_SHARES)
+            // emit Withdraw(caller, receiver, owner, assets, shares)
             expect(await stakingManager.balanceOf(user1.address)).to.equal(0)
             expect(await token.balanceOf(user1.address)).to.equal(INITIAL_BALANCE)
         })
@@ -132,21 +133,23 @@ describe("StakingManager", function () {
             
             const expectedFee = STAKE_AMOUNT * 100n / 10000n
             const expectedNetAmount = STAKE_AMOUNT - expectedFee
+            // Convert expected net amount to 18 decimal shares (net assets * 10^12 due to DECIMALS_OFFSET)
+            const expectedShares = expectedNetAmount * (10n ** 12n)
 
-            const tx = await stakingManager.connect(user1).stake(STAKE_AMOUNT)
-            
+            const tx = await stakingManager.connect(user1).deposit(STAKE_AMOUNT, user1.address)
+
             await expect(tx)
                 .to.emit(stakingManager, "InputFeeCollected")
 
             // Fees should be staked, not accumulated
             expect(await stakingManager.totalFeeShares()).to.be.greaterThan(0)
-            expect(await stakingManager.balanceOf(user1.address)).to.equal(expectedNetAmount)
+            expect(await stakingManager.balanceOf(user1.address)).to.equal(expectedShares)
         })
 
         it("Should collect output fees on unstaking and stake them", async function () {
             // First stake with no fees
             await token.connect(user1).approve(await stakingManager.getAddress(), STAKE_AMOUNT)
-            await stakingManager.connect(user1).stake(STAKE_AMOUNT)
+            await stakingManager.connect(user1).deposit(STAKE_AMOUNT, user1.address)
 
             // Set 2% output fee
             await stakingManager.connect(owner).setOutputFeeRate(200)
@@ -155,7 +158,7 @@ describe("StakingManager", function () {
             const expectedFee = STAKE_AMOUNT * 200n / 10000n
             const expectedNetAmount = STAKE_AMOUNT - expectedFee
 
-            const tx = await stakingManager.connect(user1).unstake(shares)
+            const tx = await stakingManager.connect(user1).withdraw(STAKE_AMOUNT, user1.address, user1.address)
             
             await expect(tx)
                 .to.emit(stakingManager, "OutputFeeCollected")
@@ -169,7 +172,7 @@ describe("StakingManager", function () {
             // Set 1% input fee and stake
             await stakingManager.connect(owner).setInputFeeRate(100)
             await token.connect(user1).approve(await stakingManager.getAddress(), STAKE_AMOUNT)
-            await stakingManager.connect(user1).stake(STAKE_AMOUNT)
+            await stakingManager.connect(user1).deposit(STAKE_AMOUNT, user1.address)
 
             const totalFeeShares = await stakingManager.totalFeeShares()
             expect(totalFeeShares).to.be.greaterThan(0)
@@ -195,7 +198,7 @@ describe("StakingManager", function () {
             // Set 2% input fee and stake
             await stakingManager.connect(owner).setInputFeeRate(200)
             await token.connect(user1).approve(await stakingManager.getAddress(), STAKE_AMOUNT)
-            await stakingManager.connect(user1).stake(STAKE_AMOUNT)
+            await stakingManager.connect(user1).deposit(STAKE_AMOUNT, user1.address)
 
             const expectedFeeAmount = STAKE_AMOUNT * 200n / 10000n
             const totalFeeAssets = await stakingManager.totalFeeAssets()
@@ -290,13 +293,13 @@ describe("StakingManager", function () {
 
             // Staking should be reverted
             await expect(
-                stakingManager.connect(user1).stake(STAKE_AMOUNT)
+                stakingManager.connect(user1).deposit(STAKE_AMOUNT, user1.address)
             ).to.be.revertedWithCustomError(stakingManager, "EnforcedPause")
         })
 
         it("Should prevent unstaking when paused", async function () {
             // First stake when not paused
-            await stakingManager.connect(user1).stake(STAKE_AMOUNT)
+            await stakingManager.connect(user1).deposit(STAKE_AMOUNT, user1.address)
             const userShares = await stakingManager.balanceOf(user1.address)
 
             // Pause the contract
@@ -304,7 +307,7 @@ describe("StakingManager", function () {
 
             // Unstaking should be reverted
             await expect(
-                stakingManager.connect(user1).unstake(userShares)
+                stakingManager.connect(user1).withdraw(userShares, user1.address, user1.address)
             ).to.be.revertedWithCustomError(stakingManager, "EnforcedPause")
         })
 
@@ -314,15 +317,14 @@ describe("StakingManager", function () {
             await stakingManager.unpause()
 
             // Should be able to stake
-            await expect(stakingManager.connect(user1).stake(STAKE_AMOUNT))
+            await expect(stakingManager.connect(user1).deposit(STAKE_AMOUNT, user1.address))
                 .to.not.be.reverted
 
             const userShares = await stakingManager.balanceOf(user1.address)
             expect(userShares).to.be.gt(0)
 
             // Should be able to unstake
-            await expect(stakingManager.connect(user1).unstake(userShares))
-                .to.not.be.reverted
+            await expect(stakingManager.connect(user1).withdraw(STAKE_AMOUNT, user1.address, user1.address)).to.not.be.reverted
         })
-    })
+     })
 })

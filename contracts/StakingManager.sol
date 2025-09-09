@@ -35,10 +35,10 @@ contract StakingManager is StakingAdmin, ReentrancyGuardUpgradeable, ERC4626Upgr
         address owner
     ) public initializer notZeroAddress(address(_stakingVault)) notZeroAddress(owner) {
         // Initialize inherited contracts
-        __ERC20_init(name, symbol);
-        __ERC4626_init(IERC20(_stakingVault.asset()));
         __Ownable_init(owner);
         __ReentrancyGuard_init();
+        __ERC20_init(name, symbol);
+        __ERC4626_init(IERC20(_stakingVault.asset()));
         __Pausable_init();
         __UUPSUpgradeable_init();
 
@@ -69,34 +69,41 @@ contract StakingManager is StakingAdmin, ReentrancyGuardUpgradeable, ERC4626Upgr
     }
 
     // stake assets and receive shares
-    function deposit(uint256 assets, address receiver) public override returns (uint256 shares) {
-        token.safeTransferFrom(msg.sender, address(this), assets);
-
+    function deposit(uint256 assets, address receiver) public override whenNotPaused returns (uint256 shares) {
+        shares = previewDeposit(assets);
+        uint256 vaultShare = stakingVault.previewDeposit(assets);
+        // Calculate fee and deposit all assets into vault
         uint256 feeAmount = _calculateFeeAmount(assets, inputFeeRate);
-        uint256 totalShares = _depositIntoVault(assets);
-        uint256 feeShares;
-        (shares, feeShares) = _splitShares(totalShares, assets, feeAmount);
+        // Split shares between user and fee recipient
+        uint256 feeShares = _feeShares(vaultShare, assets, feeAmount);
+        uint256 userShares = _userShares(shares, assets, feeAmount);
 
         _handleInputFeeShares(feeAmount, feeShares);
 
-        _deposit(_msgSender(), receiver, assets, shares);
+        _deposit(_msgSender(), receiver, assets, userShares);
+        _depositIntoVault(assets);
     }
 
-    function withdraw(uint256 assets, address receiver, address owner) public override returns (uint256 shares) {
+    function withdraw(uint256 assets, address receiver, address owner) public override whenNotPaused returns (uint256 shares) {
         // Preview the total assets we would get from redeeming all shares
+        shares = stakingVault.previewWithdraw(assets);
         uint256 grossAssets = stakingVault.previewRedeem(shares);
-        
         // Calculate fee amount
         uint256 feeAmount = _calculateFeeAmount(grossAssets, outputFeeRate);
-        (uint256 userShares, uint256 feeShares) = _splitShares(shares, grossAssets, feeAmount);
-
+        (uint256 feeShares, uint256 userShares) = _splitShares(shares, grossAssets, feeAmount);
         _handleOutputFeeShares(feeAmount, feeShares);
-        // Only redeem the user shares
+
+        uint256 actualShares = previewWithdraw(grossAssets); // calculate before redeeming to avoid rounding issues
         uint256 actualAssets = stakingVault.redeem(userShares, address(this), address(this));
 
-        // Transfer net assets to user
-        token.safeTransfer(msg.sender, actualAssets);
+        _withdraw(_msgSender(), receiver, owner, actualAssets, actualShares);
+    }
 
-        _withdraw(_msgSender(), receiver, owner, assets, shares);
+    function mint(uint256 shares, address receiver) public override whenNotPaused returns (uint256 assets) {
+        return super.mint(shares, receiver);
+    }
+
+    function redeem(uint256 shares, address receiver, address owner) public override whenNotPaused returns (uint256 assets) {
+        return super.redeem(shares, receiver, owner);
     }
 }
