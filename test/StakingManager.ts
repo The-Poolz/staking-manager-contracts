@@ -154,7 +154,6 @@ describe("StakingManager", function () {
             // Set 2% output fee
             await stakingManager.connect(owner).setOutputFeeRate(200)
 
-            const shares = await stakingManager.balanceOf(user1.address)
             const expectedFee = STAKE_AMOUNT * 200n / 10000n
             const expectedNetAmount = STAKE_AMOUNT - expectedFee
 
