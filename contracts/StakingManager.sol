@@ -96,7 +96,7 @@ contract StakingManager is StakingAdmin {
         uint256 userShares = _userShares(shares, assets, feeAmount);
         _handleInputFeeShares(feeAmount, feeShares);
         // step 4: Mint user shares and deposit assets into vault
-        _mint(receiver, userShares);
+        _deposit(_msgSender(), receiver, assets, userShares);
         _depositIntoVault(assets);
     }
 
