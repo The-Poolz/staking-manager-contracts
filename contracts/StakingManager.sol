@@ -119,12 +119,14 @@ contract StakingManager is StakingAdmin {
         // Step 2: Calculate fee on the assets to be redeemed
         uint256 feeAmount = _calculateFeeAmount(assets, outputFeeRate);
         // Step 3: Split shares between fee and user
-        (uint256 feeShares, uint256 userShares) = _splitShares(shares, assets, feeAmount); 
-        // Step 4: Handle the output fee
+        uint256 feeShares = _feeShares(shares, assets, feeAmount);
+        uint256 userShares = shares - feeShares;
+        uint256 userAssets = assets - feeAmount;
+        // Step 4: Handle the output fee shares
         _handleOutputFeeShares(feeAmount, feeShares);
-        // Step 5: Redeem shares from the vault for the user
-        uint256 redeemedAssets = stakingVault.redeem(userShares, address(this), address(this));
+        // Step 5: Withdraw assets from the vault for the user (not redeem shares)
+        stakingVault.withdraw(userAssets, address(this), address(this));
         // Step 6: Transfer redeemed assets to the receiver and burn user shares
-        _withdraw(_msgSender(), receiver, owner, redeemedAssets, userShares);
+        _withdraw(_msgSender(), receiver, owner, userAssets, userShares);
     }
 }
