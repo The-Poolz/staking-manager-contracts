@@ -9,4 +9,8 @@ contract MockMorphoVault is ERC4626 {
     constructor(
         IERC20 asset_
     ) ERC20("Mock ERC4626 Vault", "m4626") ERC4626(asset_) {}
+
+    function DECIMALS_OFFSET() external pure returns (uint8) {
+        return 12;
+    }
 }
