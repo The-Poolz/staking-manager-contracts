@@ -6,7 +6,6 @@ import "solidity-coverage"
 import "@nomicfoundation/hardhat-network-helpers"
 import "@nomicfoundation/hardhat-ethers"
 import "@nomicfoundation/hardhat-chai-matchers"
-import "@truffle/dashboard-hardhat-plugin"
 import "@openzeppelin/hardhat-upgrades"
 
 const config: HardhatUserConfig = {
