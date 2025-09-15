@@ -28,10 +28,8 @@ abstract contract StakingState {
     // Total shares minted from staked fees
     uint256 public totalFeeShares;
 
-    // Conversion factor to maintain user token value consistency after vault migrations
-    // This is the ratio of (new vault shares / first vault shares) * 1e18 for precision
-    // Default value is 1e18 (1:1 ratio), adjusted during vault migrations
-    uint256 public vaultShareConversionFactor;
+    /// @dev Offset to convert token decimals to 18 decimals for share calculations
+    uint8 public DECIMALS_OFFSET;
 
     /**
      * @dev Returns the total assets staked by a user.
@@ -39,10 +37,7 @@ abstract contract StakingState {
      * @return The total assets staked by the user.
      */
     function totalUserAssets(address user) external view returns (uint256) {
-        uint256 userTokens = IERC20(address(this)).balanceOf(user);
-        // Apply conversion factor to get the correct vault shares for this user
-        uint256 userVaultShares = (userTokens * vaultShareConversionFactor) / 1e18;
-        return stakingVault.previewRedeem(userVaultShares);
+        return stakingVault.previewRedeem(IERC20(address(this)).balanceOf(user));
     }
 
     /**
@@ -51,11 +46,8 @@ abstract contract StakingState {
      * It is calculated by converting the total shares of the contract into assets.
      * @return The total assets in the vault.
      */
-    function totalAssets() external view returns (uint256) {
-        uint256 totalStakingTokens = IERC20(address(this)).totalSupply();
-        // Apply conversion factor to get the correct vault shares
-        uint256 totalVaultShares = (totalStakingTokens * vaultShareConversionFactor) / 1e18;
-        return stakingVault.convertToAssets(totalVaultShares);
+    function totalAssets() external view virtual returns (uint256) {
+        return stakingVault.convertToAssets(stakingVault.balanceOf(address(this)));
     }
 
     /**
@@ -79,11 +71,28 @@ abstract contract StakingState {
         token.forceApprove(address(stakingVault), 0);
     }
 
+    function _userShares(
+        uint256 totalShares,
+        uint256 assets,
+        uint256 feeAmount
+    ) internal pure returns (uint256 userShares) {
+        uint256 feeShares = (totalShares * feeAmount) / assets;
+        userShares = totalShares - feeShares;
+    }
+
+    function _feeShares(
+        uint256 vaultShare,
+        uint256 assets,
+        uint256 feeAmount
+    ) internal pure returns (uint256 feeShares) {
+        feeShares = (vaultShare * feeAmount) / assets;
+    }
+
     function _splitShares(
         uint256 totalShares,
         uint256 assets,
         uint256 feeAmount
-    ) internal pure returns (uint256 userShares, uint256 feeShares) {
+    ) internal pure returns (uint256 feeShares, uint256 userShares) {
         feeShares = (totalShares * feeAmount) / assets;
         userShares = totalShares - feeShares;
     }

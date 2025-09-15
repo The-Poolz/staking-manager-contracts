@@ -4,12 +4,6 @@ pragma solidity ^0.8.29;
 import "@openzeppelin/contracts/interfaces/IERC4626.sol";
 
 interface Events {
-    /// @notice Emitted when a user stakes assets.
-    event Stake(address indexed user, uint256 assets, uint256 shares);
-
-    /// @notice Emitted when a user unstakes their shares.
-    event Unstake(address indexed user, uint256 shares, uint256 assets);
-
     /// @notice Emitted when the staking vault is set.
     event StakingVaultSet(IERC4626 stakingVault, IERC20 token);
 
@@ -37,8 +31,6 @@ interface Events {
         IERC4626 newVault, 
         uint256 totalAssetsRedeemed, 
         uint256 newSharesReceived,
-        uint256 exchangeRateImpact,
-        uint256 oldFactor,
-        uint256 newFactor
+        uint256 exchangeRateImpact
     );
 }
