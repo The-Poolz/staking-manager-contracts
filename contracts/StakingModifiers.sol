@@ -30,4 +30,17 @@ abstract contract StakingModifiers {
         if (fee == 0) revert Errors.NoFeesToWithdraw();
         _;
     }
+
+    /// @notice Validates that the new vault is compatible for migration
+    modifier validAssets(address newAsset, address currentAsset) {
+        // Validate that the new vault uses the same asset
+        if (newAsset != currentAsset) revert Errors.DifferentVaultAsset();
+        _;
+    }
+
+    /// @notice Validates that vaults are not the same
+    modifier notSameVault(address newVault, address currentVault) {
+        if (newVault == currentVault) revert Errors.SameVaultAsset();
+        _;
+    }
 }

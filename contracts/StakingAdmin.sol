@@ -79,23 +79,22 @@ abstract contract StakingAdmin is IStakingAdmin, StakingProxy {
      * This function handles the complexity of different exchange rates between vaults.
      * @param newVault The new IERC4626 vault to migrate to.
      */
-    function migrateVault(IERC4626 newVault) external onlyOwner notZeroAddress(address(newVault)) {
-        // Validate that the new vault uses the same asset
-        if (newVault.asset() != stakingVault.asset()) revert Errors.DifferentVaultAsset();
-        if (address(newVault) == address(stakingVault)) revert Errors.SameVaultAsset();
-
-        // Get current vault balances
+    function migrateVault(IERC4626 newVault) 
+        external 
+        onlyOwner 
+        notZeroAddress(address(newVault))
+        notSameVault(address(newVault), address(stakingVault))
+        validAssets(newVault.asset(), stakingVault.asset())
+    {
+        IERC4626 oldVault = stakingVault;
         uint256 totalShares = stakingVault.balanceOf(address(this));
         if (totalShares == 0) revert Errors.NoAssetsToMigrate();
-
-        IERC4626 oldVault = stakingVault;
         // Redeem all shares from the old vault
         uint256 totalAssetsRedeemed = oldVault.redeem(totalShares, address(this), address(this));
         // Update the vault reference
         stakingVault = newVault;
         // Deposit all redeemed assets into the new vault
         uint256 newSharesReceived = _depositIntoVault(totalAssetsRedeemed);
-
         emit Events.VaultMigrationCompleted(oldVault, newVault, totalAssetsRedeemed, newSharesReceived);
     }
 
@@ -115,7 +114,6 @@ abstract contract StakingAdmin is IStakingAdmin, StakingProxy {
     ) {
         currentShares = stakingVault.balanceOf(address(this));
         currentAssets = stakingVault.previewRedeem(currentShares);
-        
         if (currentAssets > 0) {
             projectedShares = newVault.previewDeposit(currentAssets);
             projectedAssets = newVault.previewRedeem(projectedShares);
