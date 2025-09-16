@@ -31,9 +31,8 @@ abstract contract StakingModifiers {
         _;
     }
 
-    /// @notice Validates that the new vault is compatible for migration
+    /// @notice Validate that the new vault uses the same asset
     modifier validAssets(address newAsset, address currentAsset) {
-        // Validate that the new vault uses the same asset
         if (newAsset != currentAsset) revert Errors.DifferentVaultAsset();
         _;
     }

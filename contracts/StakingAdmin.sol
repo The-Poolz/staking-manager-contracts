@@ -87,7 +87,7 @@ abstract contract StakingAdmin is IStakingAdmin, StakingProxy {
         validAssets(newVault.asset(), stakingVault.asset())
     {
         IERC4626 oldVault = stakingVault;
-        uint256 totalShares = stakingVault.balanceOf(address(this));
+        uint256 totalShares = oldVault.balanceOf(address(this));
         if (totalShares == 0) revert Errors.NoAssetsToMigrate();
         // Redeem all shares from the old vault
         uint256 totalAssetsRedeemed = oldVault.redeem(totalShares, address(this), address(this));
