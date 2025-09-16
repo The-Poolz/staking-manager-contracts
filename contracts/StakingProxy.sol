@@ -62,12 +62,11 @@ abstract contract StakingProxy is
         // Initialize immutable-like variables (stored in storage for upgradeable contracts)
         stakingVault = _stakingVault;
         DECIMALS_OFFSET = _stakingVault.DECIMALS_OFFSET();
-
         // Initialize mutable state with 0% fees
         inputFeeRate = 0;
         outputFeeRate = 0;
 
-        emit Events.StakingVaultSet(_stakingVault, IERC20(_stakingVault.asset()));
+        emit Events.StakingVaultSet(_stakingVault, IERC20(asset()));
     }
 
     /**
