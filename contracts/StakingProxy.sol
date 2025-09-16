@@ -61,15 +61,13 @@ abstract contract StakingProxy is
 
         // Initialize immutable-like variables (stored in storage for upgradeable contracts)
         stakingVault = _stakingVault;
-        token = IERC20(_stakingVault.asset());
-
         DECIMALS_OFFSET = _stakingVault.DECIMALS_OFFSET();
 
         // Initialize mutable state with 0% fees
         inputFeeRate = 0;
         outputFeeRate = 0;
 
-        emit Events.StakingVaultSet(_stakingVault, token);
+        emit Events.StakingVaultSet(_stakingVault, IERC20(_stakingVault.asset()));
     }
 
     /**
@@ -79,5 +77,10 @@ abstract contract StakingProxy is
     function totalAssets() public view override(ERC4626Upgradeable, StakingState) returns (uint256) {
         // Return total assets from the underlying staking vault
         return stakingVault.convertToAssets(stakingVault.balanceOf(address(this)));
+    }
+
+    /// @dev asset function conflict resolution
+    function asset() public view override(StakingState, ERC4626Upgradeable) returns (address) {
+        return super.asset();
     }
 }

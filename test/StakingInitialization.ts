@@ -15,7 +15,7 @@ describe("StakingManager - Initialization", function () {
             expect(await stakingManager.symbol()).to.equal("SMT")
             expect(await stakingManager.owner()).to.equal(owner.address)
             expect(await stakingManager.stakingVault()).to.equal(await vault.getAddress())
-            expect(await stakingManager.token()).to.equal(await token.getAddress())
+            expect(await stakingManager.asset()).to.equal(await token.getAddress())
             expect(await stakingManager.inputFeeRate()).to.equal(0)
             expect(await stakingManager.outputFeeRate()).to.equal(0)
         })
