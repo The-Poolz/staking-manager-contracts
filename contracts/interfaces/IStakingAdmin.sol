@@ -52,13 +52,11 @@ interface IStakingAdmin {
      * @return currentShares Current total shares in the vault.
      * @return projectedAssets Projected assets after migration.
      * @return projectedShares Projected shares after migration.
-     * @return exchangeRateImpact Estimated exchange rate impact.
      */
     function getMigrationInfo(IERC4626 newVault) external view returns (
         uint256 currentAssets,
         uint256 currentShares,
         uint256 projectedAssets,
-        uint256 projectedShares,
-        uint256 exchangeRateImpact
+        uint256 projectedShares
     );
 }

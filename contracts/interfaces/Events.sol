@@ -30,7 +30,6 @@ interface Events {
         IERC4626 oldVault, 
         IERC4626 newVault, 
         uint256 totalAssetsRedeemed, 
-        uint256 newSharesReceived,
-        uint256 exchangeRateImpact
+        uint256 newSharesReceived
     );
 }

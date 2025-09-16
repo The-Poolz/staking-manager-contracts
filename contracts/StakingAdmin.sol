@@ -91,46 +91,12 @@ abstract contract StakingAdmin is IStakingAdmin, StakingProxy {
         IERC4626 oldVault = stakingVault;
         // Redeem all shares from the old vault
         uint256 totalAssetsRedeemed = oldVault.redeem(totalShares, address(this), address(this));
-        // Approve and deposit all assets into the new vault
-        uint256 newSharesReceived = _depositIntoVault(totalAssetsRedeemed);
-
-        // Calculate exchange rate impact
-        uint256 newTotalAssets = newVault.previewRedeem(newSharesReceived);
-        uint256 exchangeRateImpact = _calculateExchangeRateImpact(totalAssetsRedeemed, newTotalAssets);
-
         // Update the vault reference
         stakingVault = newVault;
-        // Adjust fee shares proportionally to maintain fee accounting accuracy
-        totalFeeShares = (totalFeeShares * newSharesReceived) / totalShares;
+        // Deposit all redeemed assets into the new vault
+        uint256 newSharesReceived = _depositIntoVault(totalAssetsRedeemed);
 
-        emit Events.VaultMigrationCompleted(
-            oldVault,
-            newVault,
-            totalAssetsRedeemed,
-            newSharesReceived,
-            exchangeRateImpact
-        );
-    }
-
-    /**
-     * @dev Calculates the exchange rate impact during vault migration.
-     * @param assetsBefore Total assets before migration.
-     * @param assetsAfter Total assets after migration.
-     * @return impact The impact in basis points (positive = gain, negative = loss).
-     */
-    function _calculateExchangeRateImpact(
-        uint256 assetsBefore,
-        uint256 assetsAfter
-    ) internal pure returns (uint256 impact) {
-        if (assetsBefore == 0) return 0;
-        
-        if (assetsAfter >= assetsBefore) {
-            // Gain
-            impact = ((assetsAfter - assetsBefore) * 10000) / assetsBefore;
-        } else {
-            // Loss (represented as a very large number to indicate negative)
-            impact = ((assetsBefore - assetsAfter) * 10000) / assetsBefore;
-        }
+        emit Events.VaultMigrationCompleted(oldVault, newVault, totalAssetsRedeemed, newSharesReceived);
     }
 
     /**
@@ -140,14 +106,12 @@ abstract contract StakingAdmin is IStakingAdmin, StakingProxy {
      * @return currentShares Current total shares in the vault.
      * @return projectedAssets Projected assets after migration.
      * @return projectedShares Projected shares after migration.
-     * @return exchangeRateImpact Estimated exchange rate impact.
      */
     function getMigrationInfo(IERC4626 newVault) external view returns (
         uint256 currentAssets,
         uint256 currentShares,
         uint256 projectedAssets,
-        uint256 projectedShares,
-        uint256 exchangeRateImpact
+        uint256 projectedShares
     ) {
         currentShares = stakingVault.balanceOf(address(this));
         currentAssets = stakingVault.previewRedeem(currentShares);
@@ -155,7 +119,6 @@ abstract contract StakingAdmin is IStakingAdmin, StakingProxy {
         if (currentAssets > 0) {
             projectedShares = newVault.previewDeposit(currentAssets);
             projectedAssets = newVault.previewRedeem(projectedShares);
-            exchangeRateImpact = _calculateExchangeRateImpact(currentAssets, projectedAssets);
         }
     }
 }
