@@ -1,10 +1,12 @@
 # StakingManager
 
-[![Build and Test](https://github.com/The-Poolz/StakingManager/actions/workflows/node.js.yml/badge.svg)](https://github.com/The-Poolz/StakingManager/actions/workflows/node.js.yml)
-[![codecov](https://codecov.io/gh/The-Poolz/StakingManager/graph/badge.svg)](https://codecov.io/gh/The-Poolz/StakingManager)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/The-Poolz/StakingManager/blob/master/LICENSE)
+[![Build and Test](https://github.com/The-Poolz/staking-manager-contracts/actions/workflows/node.js.yml/badge.svg)](https://github.com/The-Poolz/staking-manager-contracts/actions/workflows/node.js.yml)
+[![codecov](https://codecov.io/gh/The-Poolz/staking-manager-contracts/graph/badge.svg)](https://codecov.io/gh/The-Poolz/staking-manager-contracts)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/The-Poolz/staking-manager-contracts/blob/master/LICENSE)
 
-**`StakingManager`** is an **upgradeable Solidity** smart contract that enables users to stake **ERC-20** tokens into an **IERC4626** compatible vault with a **dual fee system**. When users stake, they receive **ERC-20** "staking shares" that represent their position. These shares can be redeemed later for the underlying assets along with any accrued yield. The contract features **input fees** (on staking) and **output fees** (on unstaking) with basis point precision. Built with **UUPS proxy pattern** for seamless upgrades while preserving user state. This project uses [Hardhat](https://hardhat.org/) for development and testing.
+**`StakingManager`** is a **fully ERC4626-compliant** upgradeable Solidity smart contract that enables users to stake **ERC-20** tokens into an **IERC4626** compatible vault with a **dual fee system**. The contract implements the complete **ERC4626 Vault standard** providing standardized deposit/withdraw/mint/redeem functionality. When users stake, they receive **ERC-20** "shares" that represent their vault position and can be traded or redeemed later for the underlying assets plus accrued yield. 
+
+The contract features **input fees** (on deposits) and **output fees** (on withdrawals) with basis point precision, **pausable operations** for enhanced security, and **vault migration capabilities**. Built with **UUPS proxy pattern** for seamless upgrades while preserving user state, and designed with a modular architecture including `StakingAdmin`, `StakingState`, and `StakingInternal` contracts. This project uses [Hardhat](https://hardhat.org/) for development and testing.
 
 ## 📚 Table of Contents
 
@@ -30,10 +32,13 @@
 -   🚀 **Upgradeable Contract Architecture** - UUPS proxy pattern for seamless upgrades
 -   💰 **Dual Fee System** - Separate input and output fees with basis point precision
 -   🏦 **ERC4626 Vault Integration** - Compatible with any ERC4626 yield-bearing vault
+-   🪙 **ERC4626 Compliant** - Full ERC4626 implementation for standardized vault interactions
 -   🪙 **ERC20 Token Representation** - Staked assets represented as transferable shares
 -   🔒 **Access Control** - Owner-based fee management and upgrade authorization
 -   📊 **Fee Accumulation** - Automatic fee collection and withdrawal functionality
 -   🛡️ **Security Features** - Comprehensive validation and error handling
+-   ⏸️ **Pausable Operations** - Emergency pause functionality for enhanced security
+-   🔄 **Vault Migration** - Ability to migrate to new vaults while preserving user positions
 -   ⚡ **Gas Optimized** - Efficient operations with custom errors
 
 ---
@@ -90,6 +95,12 @@ npx hardhat run scripts/deploy.ts --network <network>
 # Run dual fee system example
 npx hardhat run scripts/dualFeeExample.ts --network <network>
 
+# Run staking operations example
+npx hardhat run scripts/stake.ts --network <network>
+
+# Check Morpho market APY (for testing vault interactions)
+npx hardhat run scripts/morphoMarketAPY.ts --network <network>
+
 # Upgrade existing deployment
 npx hardhat run scripts/upgradeContract.ts --network <network>
 ```
@@ -133,34 +144,81 @@ deployments and contract verification.
 
 ## Functions Overview
 
-### Stake
+### ERC4626 Core Functions
+
+#### deposit
 
 ```solidity
-function stake(uint256 assets) external;
+function deposit(uint256 assets, address receiver) external returns (uint256 shares);
 ```
 
-Stakes **ERC-20** tokens into the vault. Transfers `assets` from the user to the contract, deposits them into the vault, and mints ERC-20 shares as proof of stake.
+Deposits **ERC-20** tokens into the vault. Transfers `assets` from the caller to the contract, deposits them into the vault, and mints shares to the `receiver`. Input fees are deducted before depositing.
 
-**Emits**:
+**Emits**: `InputFeeCollected` (if fees apply)
+
+#### withdraw
 
 ```solidity
-emit Stake(address user, uint256 assets, uint256 shares)
+function withdraw(uint256 assets, address receiver, address owner) external returns (uint256 shares);
 ```
 
-### Unstake
+Withdraws `assets` by burning the required shares from the `owner` and transferring assets to the `receiver`. Output fees are deducted from the withdrawn assets.
+
+**Emits**: `OutputFeeCollected` (if fees apply)
+
+#### mint
 
 ```solidity
-    function unstake(uint256 shares) external;
+function mint(uint256 shares, address receiver) external returns (uint256 assets);
 ```
 
-Unstakes tokens by redeeming vault shares. Burns the user's shares and transfers the equivalent amount of underlying assets back to them.
-**Emits**:
+Mints exactly `shares` to the `receiver` by depositing the required amount of assets (including input fees).
+
+#### redeem
 
 ```solidity
-emit Unstake(address user, uint256 shares, uint256 assets)
+function redeem(uint256 shares, address receiver, address owner) external returns (uint256 assets);
 ```
 
-### totalUserAssets
+Redeems exactly `shares` from the `owner` and transfers the equivalent assets (minus output fees) to the `receiver`.
+
+### Admin Functions
+
+#### setInputFeeRate
+
+```solidity
+function setInputFeeRate(uint256 _inputFeeRate) external onlyOwner;
+```
+
+Sets the input fee rate for deposits in basis points (1 basis point = 0.01%, max 10%).
+
+#### setOutputFeeRate
+
+```solidity
+function setOutputFeeRate(uint256 _outputFeeRate) external onlyOwner;
+```
+
+Sets the output fee rate for withdrawals in basis points (1 basis point = 0.01%, max 10%).
+
+#### withdrawFeeShares
+
+```solidity
+function withdrawFeeShares(address recipient, uint256 shares) external onlyOwner;
+```
+
+Allows the owner to redeem accumulated fee shares for assets.
+
+### View Functions
+
+#### totalAssets
+
+```solidity
+function totalAssets() external view returns (uint256);
+```
+
+Returns the total value of assets staked in the vault on behalf of this contract.
+
+#### totalUserAssets
 
 ```solidity
 function totalUserAssets(address user) external view returns (uint256);
@@ -168,13 +226,13 @@ function totalUserAssets(address user) external view returns (uint256);
 
 Returns the total amount of underlying assets the user has staked, calculated from their share balance.
 
-### totalAssets
+#### accumulatedFees
 
 ```solidity
-function totalAssets() external view returns (uint256);
+function accumulatedFees() external view returns (uint256);
 ```
 
-Returns the total value of assets staked in the vault on behalf of this contract.
+Returns the current accumulated fee assets available for withdrawal.
 
 ## Usage Example
 
@@ -195,18 +253,18 @@ async function main() {
     const approveTx = await token.approve(await stakingManager.getAddress(), amount)
     await approveTx.wait()
 
-    // Stake tokens
-    const stakeTx = await stakingManager.stake(amount)
-    await stakeTx.wait()
+    // Deposit tokens (ERC4626 compliant method)
+    const depositTx = await stakingManager.deposit(amount, deployer.address)
+    await depositTx.wait()
 
     // Check user's shares
     const shares = await stakingManager.balanceOf(await deployer.getAddress())
 
-    // Unstake tokens
-    const unstakeTx = await stakingManager.unstake(shares)
-    await unstakeTx.wait()
+    // Redeem shares for assets (ERC4626 compliant method)
+    const redeemTx = await stakingManager.redeem(shares, deployer.address, deployer.address)
+    await redeemTx.wait()
 
-    console.log(`Staked and unstaked ${amount} tokens successfully.`)
+    console.log(`Deposited and redeemed ${ethers.formatEther(amount)} tokens successfully.`)
 }
 
 main().catch((error) => {
