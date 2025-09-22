@@ -73,4 +73,50 @@ abstract contract StakingAdmin is IStakingAdmin, StakingProxy {
     function unpause() external onlyOwner {
         _unpause();
     }
+
+    /**
+     * @dev Migrates all staked assets from the current vault to a new vault.
+     * This function handles the complexity of different exchange rates between vaults.
+     * @param newVault The new IERC4626 vault to migrate to.
+     */
+    function migrateVault(IERC4626 newVault) 
+        external 
+        onlyOwner 
+        notZeroAddress(address(newVault))
+        notSameVault(address(newVault), address(stakingVault))
+        validAssets(newVault.asset(), stakingVault.asset())
+    {
+        IERC4626 oldVault = stakingVault;
+        uint256 totalShares = oldVault.balanceOf(address(this));
+        if (totalShares == 0) revert Errors.NoAssetsToMigrate();
+        // Redeem all shares from the old vault
+        uint256 totalAssetsRedeemed = oldVault.redeem(totalShares, address(this), address(this));
+        // Update the vault reference
+        stakingVault = newVault;
+        // Deposit all redeemed assets into the new vault
+        uint256 newSharesReceived = _depositIntoVault(totalAssetsRedeemed);
+        emit Events.VaultMigrationCompleted(oldVault, newVault, totalAssetsRedeemed, newSharesReceived);
+    }
+
+    /**
+     * @dev Returns migration information for the current vault state.
+     * @param newVault The potential new vault to migrate to.
+     * @return currentAssets Current total assets in the vault.
+     * @return currentShares Current total shares in the vault.
+     * @return projectedAssets Projected assets after migration.
+     * @return projectedShares Projected shares after migration.
+     */
+    function getMigrationInfo(IERC4626 newVault) external view returns (
+        uint256 currentAssets,
+        uint256 currentShares,
+        uint256 projectedAssets,
+        uint256 projectedShares
+    ) {
+        currentShares = stakingVault.balanceOf(address(this));
+        currentAssets = stakingVault.previewRedeem(currentShares);
+        if (currentAssets > 0) {
+            projectedShares = newVault.previewDeposit(currentAssets);
+            projectedAssets = newVault.previewRedeem(projectedShares);
+        }
+    }
 }
