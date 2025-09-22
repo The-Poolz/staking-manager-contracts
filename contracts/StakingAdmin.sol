@@ -47,7 +47,7 @@ abstract contract StakingAdmin is IStakingAdmin, StakingProxy {
         // Redeem shares for assets
         uint256 assets = stakingVault.redeem(shares, address(this), address(this));
         // Transfer assets to recipient
-        token.safeTransfer(recipient, assets);
+        IERC20(asset()).safeTransfer(recipient, assets);
         
         emit Events.FeeSharesWithdrawn(recipient, shares, assets);
     }

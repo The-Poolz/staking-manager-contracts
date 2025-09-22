@@ -58,7 +58,7 @@ async function main() {
     console.log("StakingManager symbol:", await stakingManager.symbol())
     console.log("StakingManager owner:", await stakingManager.owner())
     console.log("StakingManager vault:", await stakingManager.stakingVault())
-    console.log("StakingManager token:", await stakingManager.token())
+    console.log("StakingManager token:", await stakingManager.asset())
 
     // Set up some initial tokens for testing
     console.log("\nSetting up test environment...")

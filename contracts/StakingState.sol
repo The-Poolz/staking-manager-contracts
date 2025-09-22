@@ -11,9 +11,6 @@ abstract contract StakingState {
     // The vault where assets are staked (stored in storage for upgradeable contracts)
     IERC4626 public stakingVault;
 
-    // The token that is being staked (stored in storage for upgradeable contracts)
-    IERC20 public token;
-
     // Input fee rate in basis points (1 basis point = 0.01%, 10000 = 100%)
     // Applied when staking
     uint256 public inputFeeRate;
@@ -66,9 +63,9 @@ abstract contract StakingState {
     function _depositIntoVault(
         uint256 assets
     ) internal returns (uint256 totalShares) {
-        token.forceApprove(address(stakingVault), assets);
+        IERC20(asset()).forceApprove(address(stakingVault), assets);
         totalShares = stakingVault.deposit(assets, address(this));
-        token.forceApprove(address(stakingVault), 0);
+        IERC20(asset()).forceApprove(address(stakingVault), 0);
     }
 
     function _userShares(
@@ -110,6 +107,8 @@ abstract contract StakingState {
             emit Events.OutputFeeCollected(feeAmount, feeShares);
         }
     }
+
+    function asset() public view virtual returns (address);
 
     /**
      * @dev This empty reserved space is put in place to allow future versions to add new
