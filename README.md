@@ -161,7 +161,10 @@ function withdraw(uint256 assets, address receiver, address owner) external retu
 
 Withdraws `assets` by burning the required shares from the `owner` and transferring assets to the `receiver`. Output fees are deducted from the withdrawn assets.
 
-**Emits**: `OutputFeeCollected` (if fees apply)
+**Emits**:
+```solidity
+event Withdraw(address indexed sender, address indexed receiver, address indexed owner, uint256 assets, uint256 shares)
+```
 
 #### mint
 
