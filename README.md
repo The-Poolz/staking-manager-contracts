@@ -1,7 +1,7 @@
 # StakingManager
 
 [![Build and Test](https://github.com/The-Poolz/staking-manager-contracts/actions/workflows/node.js.yml/badge.svg)](https://github.com/The-Poolz/staking-manager-contracts/actions/workflows/node.js.yml)
-[![codecov](https://codecov.io/gh/The-Poolz/staking-manager-contracts/graph/badge.svg)](https://codecov.io/gh/The-Poolz/staking-manager-contracts)
+[![codecov](https://codecov.io/gh/The-Poolz/StakingManager/graph/badge.svg)](https://codecov.io/gh/The-Poolz/StakingManager)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/The-Poolz/staking-manager-contracts/blob/master/LICENSE)
 
 **`StakingManager`** is a **fully ERC4626-compliant** upgradeable Solidity smart contract that enables users to stake **ERC-20** tokens into an **IERC4626** compatible vault with a **dual fee system**. The contract implements the complete **ERC4626 Vault standard** providing standardized deposit/withdraw/mint/redeem functionality. When users stake, they receive **ERC-20** "shares" that represent their vault position and can be traded or redeemed later for the underlying assets plus accrued yield. 
@@ -95,12 +95,6 @@ npx hardhat run scripts/deploy.ts --network <network>
 # Run dual fee system example
 npx hardhat run scripts/dualFeeExample.ts --network <network>
 
-# Run staking operations example
-npx hardhat run scripts/stake.ts --network <network>
-
-# Check Morpho market APY (for testing vault interactions)
-npx hardhat run scripts/morphoMarketAPY.ts --network <network>
-
 # Upgrade existing deployment
 npx hardhat run scripts/upgradeContract.ts --network <network>
 ```
@@ -154,7 +148,10 @@ function deposit(uint256 assets, address receiver) external returns (uint256 sha
 
 Deposits **ERC-20** tokens into the vault. Transfers `assets` from the caller to the contract, deposits them into the vault, and mints shares to the `receiver`. Input fees are deducted before depositing.
 
-**Emits**: `InputFeeCollected` (if fees apply)
+**Emits**: 
+```solidity
+event Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares)
+```
 
 #### withdraw
 
